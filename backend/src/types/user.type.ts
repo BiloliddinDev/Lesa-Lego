@@ -1,12 +1,12 @@
 export interface CreateUserDTO {
   telegramId: number;
-  fullName: string;
+  name: string;
   username?: string;
   role: "WORKER";
 }
 
 export interface UpdateUserDTO {
-  fullName?: string;
+  name?: string;
   isActive?: boolean;
 }
 
@@ -16,4 +16,9 @@ export interface AuditFilters {
   to?: string;
   page: number;
   limit: number;
+}
+
+export interface GetUsersFilters {
+  isActive?: boolean;
+  role?: "ADMIN" | "WORKER";
 }

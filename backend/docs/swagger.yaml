@@ -56,17 +56,91 @@ components:
         telegramId:
           type: number
           example: 123456789
-        fullName:
+        name:
           type: string
           example: Alisher Karimov
         username:
           type: string
           example: alisher_k
+        phoneNumber:
+          type: string
+          example: "+998901234567"
+        avatarUrl:
+          type: string
+          example: ""
         role:
           type: string
-          enum: [admin, worker]
+          enum: [ADMIN, WORKER]
         isActive:
           type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserWithStats:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            stats:
+              type: object
+              properties:
+                totalRentalsCreated:
+                  type: number
+                  example: 12
+                totalPaymentsAdded:
+                  type: number
+                  example: 8
+                lastActivity:
+                  type: string
+                  format: date-time
+                  nullable: true
+
+    CreateUserInput:
+      type: object
+      required: [telegramId, name, role]
+      properties:
+        telegramId:
+          type: number
+          example: 987654321
+        name:
+          type: string
+          example: Bobur Toshmatov
+        username:
+          type: string
+          example: bobur_t
+        role:
+          type: string
+          enum: [WORKER]
+
+    UpdateUserInput:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Bobur Toshmatov
+        isActive:
+          type: boolean
+          example: false
+
+    AuditLogEntry:
+      type: object
+      properties:
+        action:
+          type: string
+          example: rental.create
+        resourceType:
+          type: string
+          example: rental
+        resourceName:
+          type: string
+          example: ARN-2025-0012
+        createdAt:
+          type: string
+          format: date-time
 
   responses:
     Unauthorized:
@@ -81,6 +155,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resurs topilmadi
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: Ma'lumotlar noto'g'ri
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
 # ─────────────────────────────────────────────
 # Endpointlar
@@ -88,6 +174,8 @@ components:
 tags:
   - name: Auth
     description: Telegram WebApp orqali autentifikatsiya
+  - name: Users
+    description: Xodimlarni boshqarish (faqat Admin)
   - name: Health
     description: Server holatini tekshirish
 
@@ -168,6 +256,201 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /users:
+    get:
+      tags: [Users]
+      summary: Barcha foydalanuvchilar (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: isActive
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [ADMIN, WORKER]
+      responses:
+        "200":
+          description: Foydalanuvchilar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags: [Users]
+      summary: Yangi xodim qo'shish (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserInput"
+      responses:
+        "201":
+          description: Yaratilgan foydalanuvchi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Bu telegramId allaqachon bor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Bitta xodim + statistika (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Foydalanuvchi ma'lumotlari
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/UserWithStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Users]
+      summary: Xodim ma'lumotlarini yangilash (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: Yangilangan foydalanuvchi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{id}/audit:
+    get:
+      tags: [Users]
+      summary: Xodimning barcha amallarini ko'rish (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+            example: rental.create
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Audit log ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogEntry"
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /health:
     get:
       tags: [Health]
@@ -194,3 +477,55 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
+/users/me:
+  get:
+    tags: [Users]
+    summary: O'zining ma'lumotlarini olish (har qanday login qilgan user)
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Joriy foydalanuvchi
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: "#/components/schemas/User"
+      "401":
+        $ref: "#/components/responses/Unauthorized"
+
+  patch:
+    tags: [Users]
+    summary: O'z ma'lumotini yangilash (har qanday login qilgan user)
+    description: >
+      Worker ham, Admin ham faqat o'zining `name` maydonini o'zgartira oladi.
+      `role` va `isActive` ni o'ziga o'zi berish mumkin emas — buni faqat
+      Admin `PATCH /users/{id}` orqali qila oladi.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                example: Bobur Toshmatov
+    responses:
+      "200":
+        description: Yangilangan foydalanuvchi
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: "#/components/schemas/User"
+      "400":
+        $ref: "#/components/responses/ValidationError"
+      "401":
+        $ref: "#/components/responses/Unauthorized"

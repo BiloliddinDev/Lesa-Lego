@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken } from "../utils/jwt";
 import { User } from "../models/User";
+import { AppError } from "../utils/AppError";
 
 export async function authMiddleware(
   req: Request,
@@ -38,4 +39,13 @@ export async function authMiddleware(
       },
     });
   }
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== "ADMIN") {
+    return next(
+      new AppError("AUTH_FORBIDDEN", "Faqat admin uchun ruxsat bor", 403),
+    );
+  }
+  next();
 }

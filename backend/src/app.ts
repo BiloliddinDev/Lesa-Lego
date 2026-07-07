@@ -5,6 +5,7 @@ import { env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import { swaggerDocument } from "./config/swagger.js";
 import authRoutes from "./routes/auth";
+import userRoutes from "./routes/users";
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
@@ -19,6 +20,7 @@ app.get("/health", (req, res) => {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
 app.use(errorHandler);
 

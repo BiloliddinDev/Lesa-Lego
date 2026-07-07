@@ -180,7 +180,7 @@ function verifyInitData(initData: string, botToken: string): boolean {
 interface JwtPayload {
   userId: string; // MongoDB _id
   telegramId: number;
-  role: "admin" | "worker";
+  role: "ADMIN" | "WORKER";
   iat: number;
   exp: number; // 7 kun
 }
@@ -207,7 +207,7 @@ async function authMiddleware(req, res, next) {
 
 // Role tekshirish
 function requireAdmin(req, res, next) {
-  if (req.user.role !== "admin") {
+  if (req.user.role !== "ADMIN") {
     return res.status(403).json({ error: "Faqat admin uchun" });
   }
   next();

@@ -127,7 +127,7 @@ Barcha foydalanuvchilar.
 
 ```
 ?isActive=true|false
-?role=admin|worker
+?role=ADMIN|WORKER
 ```
 
 **Response 200:**
@@ -140,7 +140,7 @@ Barcha foydalanuvchilar.
       "telegramId": 987654321,
       "fullName": "Bobur Toshmatov",
       "username": "bobur_t",
-      "role": "worker",
+      "role": "WORKER",
       "isActive": true,
       "createdAt": "2025-06-01T00:00:00Z"
     }
@@ -162,7 +162,7 @@ Yangi xodim qo'shish.
   "telegramId": 987654321,
   "fullName": "Bobur Toshmatov",
   "username": "bobur_t",
-  "role": "worker"
+  "role": "WORKER"
 }
 ```
 
@@ -183,7 +183,7 @@ Bitta xodim + uning audit logi.
   "data": {
     "_id": "64f...",
     "fullName": "Bobur Toshmatov",
-    "role": "worker",
+    "role": "WORKER",
     "isActive": true,
     "stats": {
       "totalRentalsCreated": 12,

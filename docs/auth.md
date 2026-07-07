@@ -385,7 +385,7 @@ await User.create({
   telegramId: 123456789, // Sizning Telegram ID ingiz
   fullName: "Alisher Karimov",
   username: "alisher_k",
-  role: "admin",
+  role: "ADMIN",
   isActive: true,
 });
 
