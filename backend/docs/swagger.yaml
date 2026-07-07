@@ -1,0 +1,196 @@
+openapi: 3.0.3
+
+info:
+  title: Lesa-Lego API
+  description: >
+    Qurilish jihozlarini ijaraga berish boshqaruv tizimi uchun REST API.
+    Telegram WebApp orqali autentifikatsiya qilinadi.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000/api
+    description: Local development
+  - url: https://lesa-lego-backend.fly.dev/api
+    description: Production
+
+# ─────────────────────────────────────────────
+# Umumiy komponentlar (qayta ishlatiladigan qismlar)
+# ─────────────────────────────────────────────
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        POST /auth/telegram orqali olingan JWT token.
+        Header: Authorization: Bearer <token>
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: AUTH_USER_NOT_FOUND
+            message:
+              type: string
+              example: Siz tizimga qo'shilmagansiz
+            fields:
+              type: object
+              description: Faqat VALIDATION_ERROR bo'lganda keladi
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        telegramId:
+          type: number
+          example: 123456789
+        fullName:
+          type: string
+          example: Alisher Karimov
+        username:
+          type: string
+          example: alisher_k
+        role:
+          type: string
+          enum: [admin, worker]
+        isActive:
+          type: boolean
+
+  responses:
+    Unauthorized:
+      description: Token yo'q, noto'g'ri yoki muddati o'tgan
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Foydalanuvchi tizimda yo'q yoki role ruxsat bermaydi
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+# ─────────────────────────────────────────────
+# Endpointlar
+# ─────────────────────────────────────────────
+tags:
+  - name: Auth
+    description: Telegram WebApp orqali autentifikatsiya
+  - name: Health
+    description: Server holatini tekshirish
+
+paths:
+  /auth/telegram:
+    post:
+      tags: [Auth]
+      summary: Telegram initData orqali login qilish
+      description: >
+        WebApp ochilganda frontend `window.Telegram.WebApp.initData`
+        ni shu endpointga yuboradi. Backend HMAC-SHA256 orqali tekshiradi,
+        DB dan userni topadi va JWT qaytaradi.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [initData]
+              properties:
+                initData:
+                  type: string
+                  example: "query_id=AAHdF6IQ...&user=%7B%22id%22%3A123...&auth_date=1719648000&hash=a1b2c3..."
+      responses:
+        "200":
+          description: Muvaffaqiyatli login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      user:
+                        $ref: "#/components/schemas/User"
+        "400":
+          description: initData yuborilmagan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: initData noto'g'ri yoki 24 soatdan eski
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Foydalanuvchi DB da yo'q (admin hali qo'shmagan)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Joriy foydalanuvchi ma'lumotlarini olish
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Foydalanuvchi ma'lumotlari
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Server va DB holatini tekshirish
+      description: Deploy monitoring (masalan Fly.io health check) uchun ishlatiladi
+      security: []
+      responses:
+        "200":
+          description: Server ishlayapti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  db:
+                    type: string
+                    example: connected
+                  uptime:
+                    type: number
+                    example: 3600
+                  timestamp:
+                    type: string
+                    format: date-time
