@@ -2,9 +2,9 @@ export class AppError extends Error {
   code: string;
   statusCode: number;
 
-  constructor(code: string, message: string, statusCode: number) {
-    super(message); // asosiy Error konstruktorini chaqiramiz
-    this.code = code;
+  constructor(message: string, statusCode: number, code?: string) {
+    super(message);
+    this.code = code || "ERROR";
     this.statusCode = statusCode;
   }
 }

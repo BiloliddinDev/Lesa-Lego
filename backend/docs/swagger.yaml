@@ -142,6 +142,361 @@ components:
           type: string
           format: date-time
 
+    Category:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+          example: Lesa
+        description:
+          type: string
+        isActive:
+          type: boolean
+        order:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    Equipment:
+      type: object
+      properties:
+        _id:
+          type: string
+        category:
+          type: object
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+        name:
+          type: string
+          example: Lesa A-seriya 2m
+        description:
+          type: string
+        totalQuantity:
+          type: number
+          example: 10
+        rentedQuantity:
+          type: number
+          example: 4
+        availableQuantity:
+          type: number
+          example: 6
+        dailyRate:
+          type: number
+          example: 5000
+        isActive:
+          type: boolean
+
+    Client:
+      type: object
+      properties:
+        _id:
+          type: string
+        fullName:
+          type: string
+          example: Vohid Rahimov
+        phone:
+          type: string
+          example: "+998977654321"
+        telegramId:
+          type: number
+        address:
+          type: string
+        note:
+          type: string
+        totalDebt:
+          type: number
+          example: 250000
+        isActive:
+          type: boolean
+        createdBy:
+          type: object
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Rental:
+      type: object
+      properties:
+        _id:
+          type: string
+        rentalNumber:
+          type: string
+          example: ARN-2025-0005
+        client:
+          $ref: "#/components/schemas/Client"
+        createdBy:
+          $ref: "#/components/schemas/User"
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              equipmentName:
+                type: string
+              equipmentCategory:
+                type: string
+              quantity:
+                type: number
+              dailyRate:
+                type: number
+              returnedQuantity:
+                type: number
+        startDate:
+          type: string
+          format: date-time
+        expectedEndDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [active, overdue, completed]
+        depositAmount:
+          type: number
+        paidAmount:
+          type: number
+        deliveryLocation:
+          type: object
+          description: Yetkazish joylashuvi (xarita koordinatalari)
+          properties:
+            lat:
+              type: number
+              example: 41.311081
+            lng:
+              type: number
+              example: 69.240562
+            label:
+              type: string
+              example: Chilonzor 5-uy
+        note:
+          type: string
+
+    Payment:
+      type: object
+      properties:
+        _id:
+          type: string
+        rental:
+          type: object
+          properties:
+            _id:
+              type: string
+            rentalNumber:
+              type: string
+        client:
+          type: object
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+        amount:
+          type: number
+          example: 300000
+        method:
+          type: string
+          enum: [cash, card, transfer]
+        note:
+          type: string
+        createdBy:
+          type: object
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreatePaymentInput:
+      type: object
+      required: [rentalId, amount, method]
+      properties:
+        rentalId:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        amount:
+          type: number
+          example: 300000
+        method:
+          type: string
+          enum: [cash, card, transfer]
+        note:
+          type: string
+          example: Naqd to'lov
+
+    Debt:
+      type: object
+      properties:
+        _id:
+          type: string
+        client:
+          type: object
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+            phone:
+              type: string
+        rental:
+          type: object
+          properties:
+            _id:
+              type: string
+            rentalNumber:
+              type: string
+        amount:
+          type: number
+          example: 450000
+        dueDate:
+          type: string
+          format: date-time
+          nullable: true
+        paidDate:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [pending, paid, overdue]
+        note:
+          type: string
+
+    CreateDebtInput:
+      type: object
+      required: [clientId, rentalId, amount]
+      properties:
+        clientId:
+          type: string
+        rentalId:
+          type: string
+        amount:
+          type: number
+          example: 450000
+        dueDate:
+          type: string
+          format: date-time
+        note:
+          type: string
+
+    PayDebtInput:
+      type: object
+      required: [amount, method]
+      properties:
+        amount:
+          type: number
+          example: 450000
+        method:
+          type: string
+          enum: [cash, card, transfer]
+        note:
+          type: string
+
+    Settings:
+      type: object
+      properties:
+        _id:
+          type: string
+        companyName:
+          type: string
+          example: Lesa Lego MChJ
+        ownerName:
+          type: string
+          example: Karimov Alisher
+        address:
+          type: string
+          example: Toshkent sh, Chilonzor t, 5-uy
+        phone:
+          type: string
+          example: "+998 90 123 45 67"
+        inn:
+          type: string
+        bankAccount:
+          type: string
+        bankName:
+          type: string
+        logoBase64:
+          type: string
+          nullable: true
+        stampBase64:
+          type: string
+          nullable: true
+        signatureBase64:
+          type: string
+          nullable: true
+        contractTemplate:
+          type: string
+        rentalTerms:
+          type: string
+
+    DevLoginInput:
+      type: object
+      description: >
+        telegramId yoki userId dan birini yuborish kerak.
+        Faqat development muhitida ishlaydi.
+      properties:
+        telegramId:
+          type: number
+          description: Telegram ID orqali login
+          example: 123456789
+        userId:
+          type: string
+          description: User ID orqali login
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+
+    DevSetupInput:
+      type: object
+      description: >
+        DB bo'sh bo'lganda birinchi admin user yaratish.
+        Faqat development muhitida ishlaydi.
+      properties:
+        name:
+          type: string
+          description: Admin ismi (default: Admin)
+          example: Super Admin
+        telegramId:
+          type: number
+          description: Telegram ID (default: 1)
+          example: 123456789
+
+    DevLoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          type: object
+          properties:
+            _id:
+              type: string
+            telegramId:
+              type: number
+            name:
+              type: string
+            role:
+              type: string
+              enum: [ADMIN, WORKER]
+            isActive:
+              type: boolean
+
   responses:
     Unauthorized:
       description: Token yo'q, noto'g'ri yoki muddati o'tgan
@@ -174,8 +529,26 @@ components:
 tags:
   - name: Auth
     description: Telegram WebApp orqali autentifikatsiya
+  - name: Dev
+    description: Development mode autentifikatsiya (faqat development muhitida ishlaydi)
   - name: Users
     description: Xodimlarni boshqarish (faqat Admin)
+  - name: Categories
+    description: Jihoz kategoriyalari
+  - name: Equipment
+    description: Jihozlar (asbob-uskunalar)
+  - name: Clients
+    description: Mijozlar
+  - name: Rentals
+    description: Arendalar (ijara)
+  - name: Payments
+    description: To'lovlar
+  - name: Debts
+    description: Qarzdorlar
+  - name: Settings
+    description: Kompaniya sozlamalari (faqat Admin)
+  - name: Reports
+    description: Hisobotlar
   - name: Health
     description: Server holatini tekshirish
 
@@ -255,6 +628,115 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+
+  # ─────────────────────────────────────────────
+  # Dev Auth (faqat development mode)
+  # ─────────────────────────────────────────────
+  /auth/dev-users:
+    get:
+      tags: [Dev]
+      summary: Development mode — foydalanuvchilar ro'yxati
+      description: >
+        ⚠️ **FAQAT DEVELOPMENT MUHITIDA ISHLAYDI.**
+        Brauzerda simulyatsiya qilish uchun mavjud foydalanuvchilarni qaytaradi.
+        `NODE_ENV=development` bo'lgandagina ishlaydi.
+      security: []
+      responses:
+        "200":
+          description: Foydalanuvchilar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        telegramId:
+                          type: number
+                        name:
+                          type: string
+                        role:
+                          type: string
+                          enum: [ADMIN, WORKER]
+                        isActive:
+                          type: boolean
+
+  /auth/dev-login:
+    post:
+      tags: [Dev]
+      summary: Development mode — Telegram WebAppsiz token olish
+      description: >
+        ⚠️ **FAQAT DEVELOPMENT MUHITIDA ISHLAYDI.**
+        Brauzerda API test qilish uchun `telegramId` yoki `userId` yuborilsa,
+        JWT token qaytariladi.
+        `NODE_ENV=development` bo'lgandagina ishlaydi.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevLoginInput"
+      responses:
+        "200":
+          description: Muvaffaqiyatli login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/DevLoginResponse"
+        "400":
+          description: telegramId yoki userId yuborilmagan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Foydalanuvchi topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/dev-setup:
+    post:
+      tags: [Dev]
+      summary: Development mode — birinchi admin user yaratish
+      description: >
+        ⚠️ **FAQAT DEVELOPMENT MUHITIDA ISHLAYDI.**
+        DB bo'sh bo'lganda birinchi ADMIN user yaratadi va JWT token qaytaradi.
+        Agar tizimda allaqachon userlar bo'lsa, xato qaytaradi.
+        `NODE_ENV=development` bo'lgandagina ishlaydi.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DevSetupInput"
+      responses:
+        "201":
+          description: Admin user yaratildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/DevLoginResponse"
+        "400":
+          description: Tizimda allaqachon foydalanuvchilar bor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /users:
     get:
@@ -451,6 +933,59 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /users/me:
+    get:
+      tags: [Users]
+      summary: O'zining ma'lumotlarini olish (har qanday login qilgan user)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Joriy foydalanuvchi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    patch:
+      tags: [Users]
+      summary: O'z ma'lumotini yangilash (har qanday login qilgan user)
+      description: >
+        Worker ham, Admin ham faqat o'zining `name` maydonini o'zgartira oladi.
+        `role` va `isActive` ni o'ziga o'zi berish mumkin emas — buni faqat
+        Admin `PATCH /users/{id}` orqali qila oladi.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Bobur Toshmatov
+      responses:
+        "200":
+          description: Yangilangan foydalanuvchi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /health:
     get:
       tags: [Health]
@@ -477,55 +1012,1550 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
-/users/me:
-  get:
-    tags: [Users]
-    summary: O'zining ma'lumotlarini olish (har qanday login qilgan user)
-    security:
-      - bearerAuth: []
-    responses:
-      "200":
-        description: Joriy foydalanuvchi
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                data:
-                  $ref: "#/components/schemas/User"
-      "401":
-        $ref: "#/components/responses/Unauthorized"
 
-  patch:
-    tags: [Users]
-    summary: O'z ma'lumotini yangilash (har qanday login qilgan user)
-    description: >
-      Worker ham, Admin ham faqat o'zining `name` maydonini o'zgartira oladi.
-      `role` va `isActive` ni o'ziga o'zi berish mumkin emas — buni faqat
-      Admin `PATCH /users/{id}` orqali qila oladi.
-    security:
-      - bearerAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
+  # ─────────────────────────────────────────────
+  # Categories
+  # ─────────────────────────────────────────────
+  /categories:
+    get:
+      tags: [Categories]
+      summary: Barcha kategoriyalar
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Kategoriyalar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Categories]
+      summary: Yangi kategoriya qo'shish (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: Lesa
+                description:
+                  type: string
+                  example: Qurilish lesalari
+                order:
+                  type: number
+                  example: 1
+      responses:
+        "201":
+          description: Yaratilgan kategoriya
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Bu nomli kategoriya allaqachon mavjud
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /categories/{id}:
+    get:
+      tags: [Categories]
+      summary: Bitta kategoriya
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
           schema:
-            type: object
-            properties:
-              name:
-                type: string
-                example: Bobur Toshmatov
-    responses:
-      "200":
-        description: Yangilangan foydalanuvchi
+            type: string
+      responses:
+        "200":
+          description: Kategoriya
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Categories]
+      summary: Kategoriyani yangilash (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                data:
-                  $ref: "#/components/schemas/User"
-      "400":
-        $ref: "#/components/responses/ValidationError"
-      "401":
-        $ref: "#/components/responses/Unauthorized"
+                name:
+                  type: string
+                description:
+                  type: string
+                order:
+                  type: number
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Yangilangan kategoriya
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Categories]
+      summary: Kategoriyani o'chirish (Admin only, soft delete)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: O'chirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Kategoriya o'chirildi
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Equipment
+  # ─────────────────────────────────────────────
+  /equipment:
+    get:
+      tags: [Equipment]
+      summary: Barcha jihozlar
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: available
+          in: query
+          schema:
+            type: string
+            enum: ["true"]
+          description: Faqat mavjud jihozlar (totalQuantity > rentedQuantity)
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Nomi bo'yicha qidirish
+      responses:
+        "200":
+          description: Jihozlar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Equipment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Equipment]
+      summary: Yangi jihoz qo'shish (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [categoryId, name, totalQuantity, dailyRate]
+              properties:
+                categoryId:
+                  type: string
+                name:
+                  type: string
+                  example: Lesa A-seriya 2m
+                description:
+                  type: string
+                totalQuantity:
+                  type: number
+                  example: 10
+                dailyRate:
+                  type: number
+                  example: 5000
+      responses:
+        "201":
+          description: Yaratilgan jihoz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Equipment"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Ushbu kategoriyada bunday nomli jihoz bor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /equipment/{id}:
+    get:
+      tags: [Equipment]
+      summary: Bitta jihoz
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Jihoz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Equipment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Equipment]
+      summary: Jihozni yangilash (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                dailyRate:
+                  type: number
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: Yangilangan jihoz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Equipment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Equipment]
+      summary: Jihozni o'chirish (Admin only, soft delete)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: O'chirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Jihoz o'chirildi (soft delete)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /equipment/{id}/quantity:
+    patch:
+      tags: [Equipment]
+      summary: Ombor miqdorini sozlash (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [adjustment, reason]
+              properties:
+                adjustment:
+                  type: number
+                  example: 5
+                  description: Qo'shish (+) yoki ayirish (-)
+                reason:
+                  type: string
+                  example: Yangi lesa xarid qilindi
+      responses:
+        "200":
+          description: Yangilangan miqdor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Equipment"
+        "400":
+          description: adjustment natijasida totalQuantity < rentedQuantity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Clients
+  # ─────────────────────────────────────────────
+  /clients:
+    get:
+      tags: [Clients]
+      summary: Barcha mijozlar
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: FullName yoki phone bo'yicha qidirish
+        - name: hasDebt
+          in: query
+          schema:
+            type: string
+            enum: ["true"]
+        - name: isActive
+          in: query
+          schema:
+            type: string
+            enum: ["true", "false"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Mijozlar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Client"
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Clients]
+      summary: Yangi mijoz qo'shish (Admin + Worker)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, phone]
+              properties:
+                fullName:
+                  type: string
+                  example: Vohid Rahimov
+                phone:
+                  type: string
+                  example: "+998977654321"
+                telegramId:
+                  type: number
+                address:
+                  type: string
+                note:
+                  type: string
+      responses:
+        "201":
+          description: Yaratilgan mijoz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Bu telefon raqami allaqachon mavjud
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /clients/{id}:
+    get:
+      tags: [Clients]
+      summary: Bitta mijoz (to'liq ma'lumot)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Mijoz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Clients]
+      summary: Mijozni yangilash (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: string
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Yangilangan mijoz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Client"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Clients]
+      summary: Mijozni o'chirish (Admin only, soft delete)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: O'chirildi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Mijoz o'chirildi (soft delete)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Rentals
+  # ─────────────────────────────────────────────
+  /rentals:
+    get:
+      tags: [Rentals]
+      summary: Barcha arendalar
+      description: >
+        Admin: barcha arendalar. Worker: faqat o'ziniki.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, overdue, completed]
+        - name: clientId
+          in: query
+          schema:
+            type: string
+        - name: createdBy
+          in: query
+          schema:
+            type: string
+          description: Worker o'z arendalari uchun
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Arendalar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rentals:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Rental"
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Rentals]
+      summary: Yangi arenda ochish (Admin + Worker)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, items, startDate]
+              properties:
+                clientId:
+                  type: string
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [equipmentId, quantity]
+                    properties:
+                      equipmentId:
+                        type: string
+                      quantity:
+                        type: number
+                      dailyRate:
+                        type: number
+                startDate:
+                  type: string
+                  format: date-time
+                expectedEndDate:
+                  type: string
+                  format: date-time
+                depositAmount:
+                  type: number
+                  default: 0
+                deliveryLocation:
+                  type: object
+                  description: Yetkazish joylashuvi (xarita koordinatalari)
+                  properties:
+                    lat:
+                      type: number
+                      example: 41.311081
+                    lng:
+                      type: number
+                      example: 69.240562
+                    label:
+                      type: string
+                      example: Chilonzor 5-uy
+                note:
+                  type: string
+      responses:
+        "201":
+          description: Yaratilgan arenda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Rental"
+        "400":
+          description: Equipment yetarli emas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Client yoki equipment topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /rentals/{id}:
+    get:
+      tags: [Rentals]
+      summary: Bitta arenda (to'liq ma'lumot)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Arenda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Rental"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Worker faqat o'z arendasini ko'ra oladi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Rentals]
+      summary: Arenda meta-ma'lumotlarini tahrirlash (Admin only)
+      description: Faqat faol arendani tahrirlash mumkin
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedEndDate:
+                  type: string
+                  format: date-time
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Yangilangan arenda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Rental"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rentals/{id}/check:
+    get:
+      tags: [Rentals]
+      summary: Joriy hisob (arenda ochiq bo'lganda)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Joriy hisob
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      rentalNumber:
+                        type: string
+                      client:
+                        type: object
+                        properties:
+                          fullName:
+                            type: string
+                          phone:
+                            type: string
+                      startDate:
+                        type: string
+                        format: date
+                      checkDate:
+                        type: string
+                        format: date
+                      status:
+                        type: string
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            equipmentName:
+                              type: string
+                            quantity:
+                              type: number
+                            returnedQuantity:
+                              type: number
+                            activeQuantity:
+                              type: number
+                            dailyRate:
+                              type: number
+                            segments:
+                              type: array
+                            itemTotal:
+                              type: number
+                      totalAmount:
+                        type: number
+                      depositAmount:
+                        type: number
+                      paidAmount:
+                        type: number
+                      debt:
+                        type: number
+                      overpaid:
+                        type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rentals/{id}/return:
+    post:
+      tags: [Rentals]
+      summary: Jihozlarni (qisman) qaytarish
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [returns]
+              properties:
+                returns:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [equipmentId, quantity]
+                    properties:
+                      equipmentId:
+                        type: string
+                      quantity:
+                        type: number
+                      note:
+                        type: string
+                returnDate:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Qaytarilgan jihozlar + joriy hisob
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      rental:
+                        $ref: "#/components/schemas/Rental"
+                      check:
+                        type: object
+        "400":
+          description: Qaytarish miqdori active dan ko'p yoki arenda yopilgan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rentals/{id}/close:
+    post:
+      tags: [Rentals]
+      summary: Arendani to'liq yopish
+      description: Barcha jihozlar qaytarilgan bo'lishi shart
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endDate:
+                  type: string
+                  format: date-time
+                note:
+                  type: string
+      responses:
+        "200":
+          description: Yopilgan arenda + yakuniy hisob
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      rental:
+                        $ref: "#/components/schemas/Rental"
+                      finalCheck:
+                        type: object
+        "400":
+          description: Hali qaytarilmagan jihozlar bor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rentals/{id}/pdf:
+    get:
+      tags: [Rentals]
+      summary: PDF yuklab olish (nakladnoy/check/contract)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [nakladnoy, check, contract]
+      responses:
+        "200":
+          description: >
+            PDF fayl (binary). Turlari:
+            `nakladnoy` — chiqarish varag'i (arenda boshlanganda),
+            `check` — hisob-kitob (qaytarish/yopishda, kunlik jadval bilan),
+            `contract` — ijara shartnomasi.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Payments
+  # ─────────────────────────────────────────────
+  /payments:
+    get:
+      tags: [Payments]
+      summary: Barcha to'lovlar
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: rentalId
+          in: query
+          schema:
+            type: string
+        - name: clientId
+          in: query
+          schema:
+            type: string
+        - name: method
+          in: query
+          schema:
+            type: string
+            enum: [cash, card, transfer]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: To'lovlar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Payment"
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Payments]
+      summary: Yangi to'lov kiritish (Admin + Worker)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentInput"
+      responses:
+        "201":
+          description: Yaratilgan to'lov
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Payment"
+        "400":
+          description: Arenda topilmadi yoki yopilgan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Arenda topilmadi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /payments/{id}:
+    delete:
+      tags: [Payments]
+      summary: To'lovni bekor qilish (Admin only)
+      description: >
+        To'lov o'chiriladi, Rental.paidAmount qayta hisoblanadi,
+        Client.totalDebt yangilanadi, AuditLog yoziladi.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bekor qilindi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: To'lov bekor qilindi
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Debts
+  # ─────────────────────────────────────────────
+  /debts:
+    get:
+      tags: [Debts]
+      summary: Qarzdorlar ro'yxati
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, overdue]
+        - name: clientId
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Qarzdorlar ro'yxati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Debt"
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  totalPages:
+                    type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Debts]
+      summary: Yangi qarz qayd etish
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDebtInput"
+      responses:
+        "201":
+          description: Yaratilgan qarz
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Debt"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /debts/{id}/pay:
+    post:
+      tags: [Debts]
+      summary: Qarzni to'lash (avtomatik Payment yaratiladi)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayDebtInput"
+      responses:
+        "200":
+          description: Qarz to'landi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      debt:
+                        $ref: "#/components/schemas/Debt"
+                      payment:
+                        $ref: "#/components/schemas/Payment"
+        "400":
+          description: Qarz allaqachon to'langan yoki miqdor ko'p
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ─────────────────────────────────────────────
+  # Settings
+  # ─────────────────────────────────────────────
+  /settings:
+    get:
+      tags: [Settings]
+      summary: Kompaniya sozlamalarini olish (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sozlamalar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Settings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    patch:
+      tags: [Settings]
+      summary: Kompaniya sozlamalarini yangilash (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                companyName:
+                  type: string
+                ownerName:
+                  type: string
+                address:
+                  type: string
+                phone:
+                  type: string
+                inn:
+                  type: string
+                bankAccount:
+                  type: string
+                bankName:
+                  type: string
+                contractTemplate:
+                  type: string
+                rentalTerms:
+                  type: string
+      responses:
+        "200":
+          description: Yangilangan sozlamalar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Settings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ─────────────────────────────────────────────
+  # Reports
+  # ─────────────────────────────────────────────
+  /reports/summary:
+    get:
+      tags: [Reports]
+      summary: Dashboard uchun umumiy statistika (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Statistika
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      today:
+                        type: string
+                      activeRentals:
+                        type: number
+                      overdueRentals:
+                        type: number
+                      totalDebtors:
+                        type: number
+                      totalDebt:
+                        type: number
+                      equipmentStats:
+                        type: object
+                        properties:
+                          totalOut:
+                            type: number
+                          totalAvailable:
+                            type: number
+                      todayStats:
+                        type: object
+                        properties:
+                          newRentals:
+                            type: number
+                          closedRentals:
+                            type: number
+                          paymentsReceived:
+                            type: number
+                          newClients:
+                            type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /reports/monthly:
+    get:
+      tags: [Reports]
+      summary: Oylik hisobot (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+            example: 2025
+        - name: month
+          in: query
+          schema:
+            type: integer
+            example: 6
+      responses:
+        "200":
+          description: Oylik hisobot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      period:
+                        type: string
+                        example: "2025-06"
+                      revenue:
+                        type: number
+                      newRentals:
+                        type: number
+                      closedRentals:
+                        type: number
+                      newClients:
+                        type: number
+                      paymentsReceived:
+                        type: number
+                      topClients:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            fullName:
+                              type: string
+                            totalPaid:
+                              type: number
+                      topEquipment:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            rentalCount:
+                              type: number
+                      dailyRevenue:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            amount:
+                              type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /reports/overdue:
+    get:
+      tags: [Reports]
+      summary: Muddati o'tgan arendalar (Admin + Worker)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Muddati o'tgan arendalar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rentalNumber:
+                          type: string
+                        client:
+                          type: object
+                          properties:
+                            fullName:
+                              type: string
+                            phone:
+                              type: string
+                        expectedEndDate:
+                          type: string
+                          format: date
+                        overdueDays:
+                          type: number
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              equipmentName:
+                                type: string
+                              activeQuantity:
+                                type: number
+        "401":
+          $ref: "#/components/responses/Unauthorized"

@@ -1,7 +1,7 @@
-import { AdminUserType } from "@/types/auth.types";
+import { IUserType } from "../types/auth.types";
 import mongoose, { Schema, Document } from "mongoose";
 
-export interface IUser extends AdminUserType, Document {}
+export interface IUser extends IUserType, Document {}
 
 const userSchema = new Schema<IUser>(
   {

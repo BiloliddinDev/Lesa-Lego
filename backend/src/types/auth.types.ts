@@ -1,13 +1,15 @@
 export type UserRole = "ADMIN" | "WORKER";
 
-export interface AdminUserType {
+export interface IUserType {
   name: string;
-  phoneNumber: string;
-  username: string;
+  phoneNumber?: string;
+  username?: string;
   role: UserRole;
-  telegramId: number;
+  telegramId?: number;
   isActive: boolean;
-  avatarUrl: string;
+  avatarUrl?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface JwtPayload {

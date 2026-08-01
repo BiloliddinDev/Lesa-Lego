@@ -1,65 +1,178 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
+import { authApi } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Building2, UserPlus, LogIn, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { login, telegramLogin, setup, user, isLoading } = useAuth();
+  const [telegramId, setTelegramId] = useState("");
+  const [name, setName] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isSettingUp, setIsSettingUp] = useState(false);
+  const [hasUsers, setHasUsers] = useState<boolean | null>(null);
+  const [isTelegramAuto, setIsTelegramAuto] = useState(false);
+  const [telegramFailed, setTelegramFailed] = useState(false);
+
+  React.useEffect(() => {
+    if (user && !isLoading) {
+      router.replace("/dashboard");
+    }
+  }, [user, isLoading, router]);
+
+  // Dev-mode faqat oddiy brauzerda (Telegram WebAppsiz) ishlatiladi.
+  // Telegram ichida dev-endpointlar production'da yo'q (404 qaytaradi).
+  const isTelegramEnv = typeof window !== "undefined" && !!window.Telegram?.WebApp?.initData;
+
+  React.useEffect(() => {
+    if (isTelegramEnv) return;
+    authApi.devUsers()
+      .then((users) => setHasUsers(users.length > 0))
+      .catch(() => setHasUsers(false));
+  }, [isTelegramEnv]);
+
+  // Telegram WebApp ichida ochilgan bo'lsa, avtomatik kirish
+  React.useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (!tg || !tg.initData) return;
+
+    tg.ready();
+    tg.expand();
+    setIsTelegramAuto(true);
+
+    telegramLogin(tg.initData)
+      .then(() => {
+        toast.success("Tizimga kirdingiz");
+        router.push("/dashboard");
+      })
+      .catch((err: any) => {
+        setIsTelegramAuto(false);
+        setTelegramFailed(true);
+        toast.error(err.response?.data?.error?.message || "Telegram orqali kirishda xatolik");
+      });
+  }, [telegramLogin, router]);
+
+  if (isLoading) return null;
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!telegramId) return;
+    setIsLoggingIn(true);
+    try {
+      await login({ telegramId: parseInt(telegramId) });
+      toast.success("Tizimga kirdingiz");
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || "Xatolik yuz berdi");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleSetup = async () => {
+    setIsSettingUp(true);
+    try {
+      await setup({ name: name || undefined });
+      toast.success("Admin user yaratildi");
+      router.push("/dashboard");
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || "Xatolik yuz berdi");
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex min-h-dvh flex-col items-center justify-center p-4">
+      <div className="mb-8 flex flex-col items-center gap-2">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
+          <Building2 className="h-8 w-8 text-primary-foreground" />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <h1 className="text-2xl font-bold">Lesa Lego</h1>
+        <p className="text-sm text-muted-foreground">Jihoz ijarasi boshqaruvi</p>
+      </div>
+
+      {isTelegramAuto && (
+        <Card className="w-full max-w-sm">
+          <CardContent className="p-6 flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Telegram orqali kirilmoqda...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isTelegramAuto && telegramFailed && isTelegramEnv && (
+        <Card className="w-full max-w-sm">
+          <CardContent className="p-6 text-center space-y-2">
+            <LogIn className="h-8 w-8 mx-auto text-muted-foreground" />
+            <p className="text-sm font-medium">Kirish imkonsiz</p>
+            <p className="text-xs text-muted-foreground">
+              Siz tizimga qo&apos;shilmagansiz. Administrator bilan bog&apos;laning.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isTelegramAuto && !telegramFailed && hasUsers === true && (
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Tizimga kirish</CardTitle>
+            <CardDescription>Telegram ID orqali kirish</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Telegram ID</label>
+                <Input
+                  type="number"
+                  placeholder="123456789"
+                  value={telegramId}
+                  onChange={(e) => setTelegramId(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                <LogIn className="h-4 w-4" />
+                {isLoggingIn ? "Kutilmoqda..." : "Kirish"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isTelegramAuto && !telegramFailed && hasUsers === false && (
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Birinchi admin yaratish</CardTitle>
+            <CardDescription>DB bo&apos;sh — iltimos birinchi admin user yarating</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Ismingiz</label>
+              <Input
+                placeholder="Admin"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleSetup} className="w-full" disabled={isSettingUp}>
+              <UserPlus className="h-4 w-4" />
+              {isSettingUp ? "Yaratilmoqda..." : "Admin yaratish"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isTelegramAuto && !telegramFailed && hasUsers === null && (
+        <p className="text-sm text-muted-foreground">Ma&apos;lumotlar tekshirilmoqda...</p>
+      )}
     </div>
   );
 }

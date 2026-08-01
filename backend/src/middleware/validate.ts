@@ -23,6 +23,8 @@ export function validateQuery(schema: ZodSchema) {
   };
 }
 
+export const validate = validateBody;
+
 export function validateParams(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
