@@ -1,5 +1,6 @@
 import { ICategory } from "../models/Category";
 import { Category } from "../models/Category";
+import { Equipment } from "../models/Equipment";
 import { AppError } from "../utils/AppError";
 
 export class CategoryService {
@@ -43,12 +44,18 @@ export class CategoryService {
 
   async deleteCategory(id: string) {
     const category = await this.getCategoryById(id);
-    
-    // Check if it has equipment (simplified for now, ideally use a count)
-    // In a real app, we'd check if any equipment belongs to this category
-    // For this implementation, we'll let it be handled by the DB if there's a ref constraint, 
-    // but here we'll just perform a soft delete.
-    
+
+    // Faol jihozi bor kategoriyani o'chirib bo'lmaydi: ilgari tekshiruv yo'q
+    // edi va jihozlar "egasiz" qolib, ro'yxatlarda kategoriyasiz ko'rinardi.
+    const activeEquipment = await Equipment.countDocuments({ category: id, isActive: true });
+    if (activeEquipment > 0) {
+      throw new AppError(
+        `Bu kategoriyada ${activeEquipment} ta faol jihoz bor. Avval ularni ko'chiring yoki o'chiring`,
+        400,
+        "CATEGORY_NOT_EMPTY",
+      );
+    }
+
     category.isActive = false;
     await category.save();
     return { message: "Kategoriya o'chirildi" };

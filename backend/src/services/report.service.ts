@@ -2,14 +2,26 @@ import { Rental } from "../models/Rental";
 import { Payment } from "../models/Payment";
 import { Client } from "../models/Client";
 import { Equipment } from "../models/Equipment";
-import mongoose from "mongoose";
+import { calculateRental } from "./rental-calc";
+import { Actor, isAdmin } from "./access.service";
+import {
+  APP_TZ,
+  addTzDays,
+  endOfTzDay,
+  inclusiveTzDayCount,
+  startOfTzDay,
+  tzDateKey,
+  tzMonthRange,
+} from "../utils/date";
+
+/** Yopilmagan arendalar — muddati o'tganlari ham shu ro'yxatda. */
+const OPEN_STATUSES = ["active", "overdue"];
 
 export class ReportService {
   async getSummary() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const today = startOfTzDay(new Date());
+    const todayEnd = endOfTzDay(new Date());
+    const range = { $gte: today, $lte: todayEnd };
 
     const [
       activeRentals,
@@ -17,7 +29,11 @@ export class ReportService {
       totalDebtors,
       totalDebt,
       equipmentStats,
-      todayStats,
+      newRentals,
+      closedRentals,
+      paymentsToday,
+      depositsToday,
+      newClients,
     ] = await Promise.all([
       Rental.countDocuments({ status: "active" }),
       Rental.countDocuments({ status: "overdue" }),
@@ -36,19 +52,27 @@ export class ReportService {
           },
         },
       ]),
-      Promise.all([
-        Rental.countDocuments({ createdAt: { $gte: today, $lt: tomorrow } }),
-        Rental.countDocuments({ endDate: { $gte: today, $lt: tomorrow } }),
-        Payment.aggregate([
-          { $match: { createdAt: { $gte: today, $lt: tomorrow } } },
-          { $group: { _id: null, total: { $sum: "$amount" } } },
-        ]),
-        Client.countDocuments({ createdAt: { $gte: today, $lt: tomorrow } }),
+      Rental.countDocuments({ createdAt: range }),
+      Rental.countDocuments({ endDate: range }),
+      Payment.aggregate([
+        { $match: { createdAt: range } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
+      Rental.aggregate([
+        { $match: { createdAt: range } },
+        { $group: { _id: null, total: { $sum: "$depositAmount" } } },
+      ]),
+      Client.countDocuments({ createdAt: range }),
     ]);
 
+    const payments = paymentsToday[0]?.total || 0;
+    const deposits = depositsToday[0]?.total || 0;
+
     return {
-      today: today.toISOString().split("T")[0],
+      // Sana biznes mintaqasi bo'yicha — `toISOString()` UTC'ga siljitib,
+      // UTC+5 da kunni bir kun orqaga surib yuborardi.
+      today: tzDateKey(today),
+      timezone: APP_TZ,
       activeRentals,
       overdueRentals,
       totalDebtors,
@@ -58,159 +82,184 @@ export class ReportService {
         totalAvailable: equipmentStats[0]?.totalAvailable || 0,
       },
       todayStats: {
-        newRentals: todayStats[0],
-        closedRentals: todayStats[1],
-        paymentsReceived: todayStats[2][0]?.total || 0,
-        newClients: todayStats[3],
+        newRentals,
+        closedRentals,
+        paymentsReceived: payments,
+        depositsReceived: deposits,
+        // Kassaga bugun tushgan pul: to'lovlar + yangi arendalar omonati
+        cashReceived: payments + deposits,
+        newClients,
       },
     };
   }
 
   async getMonthly(year: number, month: number) {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const { start: startDate, end: endDate } = tzMonthRange(year, month);
+    const range = { $gte: startDate, $lte: endDate };
 
     const [
-      revenueData,
       newRentals,
       closedRentals,
       newClients,
       paymentsData,
+      depositsData,
       topClients,
       topEquipment,
       dailyRevenue,
     ] = await Promise.all([
-      Rental.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
-        { $group: { _id: null, total: { $sum: "$depositAmount" } } },
-      ]),
-      Rental.countDocuments({ createdAt: { $gte: startDate, $lte: endDate } }),
-      Rental.countDocuments({ endDate: { $gte: startDate, $lte: endDate }, status: "completed" }),
-      Client.countDocuments({ createdAt: { $gte: startDate, $lte: endDate } }),
+      Rental.countDocuments({ createdAt: range }),
+      Rental.countDocuments({ endDate: range, status: "completed" }),
+      Client.countDocuments({ createdAt: range }),
       Payment.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+        { $match: { createdAt: range } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
+      Rental.aggregate([
+        { $match: { createdAt: range } },
+        { $group: { _id: null, total: { $sum: "$depositAmount" } } },
+      ]),
       Payment.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
-        {
-          $lookup: {
-            from: "clients",
-            localField: "client",
-            foreignField: "_id",
-            as: "clientInfo",
-          },
-        },
-        { $unwind: "$clientInfo" },
+        { $match: { createdAt: range } },
         {
           $group: {
             _id: "$client",
-            fullName: { $first: "$clientInfo.fullName" },
             totalPaid: { $sum: "$amount" },
           },
         },
         { $sort: { totalPaid: -1 } },
         { $limit: 5 },
-      ]),
-      Payment.aggregate([
-        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
         {
           $lookup: {
-            from: "rentals",
-            localField: "rental",
+            from: "clients",
+            localField: "_id",
             foreignField: "_id",
-            as: "rentalInfo",
+            as: "clientInfo",
           },
         },
-        { $unwind: "$rentalInfo" },
-        {
-          $lookup: {
-            from: "rentals",
-            let: { rentalId: "$rental" },
-            pipeline: [
-              { $match: { $expr: { $eq: ["$_id", "$$rentalId"] } } },
-              { $unwind: "$items" },
-              { $replaceRoot: { newRoot: "$items" } },
-            ],
-            as: "rentalItems",
-          },
-        },
-        { $unwind: "$rentalItems" },
+        { $unwind: "$clientInfo" },
+        { $project: { fullName: "$clientInfo.fullName", totalPaid: 1 } },
+      ]),
+      // Eng ko'p ijaraga berilgan jihozlar ARENDALARDAN hisoblanadi.
+      // Ilgari `Payment` dan hisoblanardi: bir arendaga 3 to'lov qilinsa
+      // jihozlar 3 marta sanalardi, to'lanmagan arenda esa reytingga
+      // umuman tushmasdi.
+      Rental.aggregate([
+        { $match: { createdAt: range } },
+        { $unwind: "$items" },
         {
           $group: {
-            _id: "$rentalItems.equipment",
-            name: { $first: "$rentalItems.equipmentName" },
-            rentalCount: { $sum: 1 },
+            _id: "$items.equipment",
+            name: { $first: "$items.equipmentName" },
+            rentalCount: { $addToSet: "$_id" },
+            totalQuantity: { $sum: "$items.quantity" },
           },
         },
-        { $sort: { rentalCount: -1 } },
+        {
+          $project: {
+            name: 1,
+            totalQuantity: 1,
+            rentalCount: { $size: "$rentalCount" },
+          },
+        },
+        { $sort: { rentalCount: -1, totalQuantity: -1 } },
         { $limit: 5 },
       ]),
       this.getDailyRevenue(startDate, endDate),
     ]);
 
+    const paymentsReceived = paymentsData[0]?.total || 0;
+    const depositsReceived = depositsData[0]?.total || 0;
+
     return {
       period: `${year}-${String(month).padStart(2, "0")}`,
-      revenue: revenueData[0]?.total || 0,
+      timezone: APP_TZ,
+      // Kassa (cash) tamoyili: haqiqatda tushgan pul.
+      // Ilgari `revenue` = arendalarning `depositAmount` yig'indisi edi —
+      // to'lovlar bu raqamga umuman kirmasdi, omonat 0 bo'lsa daromad 0 edi.
+      // Omonat `Payment` hujjati sifatida yozilmaydi, shuning uchun alohida
+      // qo'shiladi (ikki marta sanalmaydi).
+      revenue: paymentsReceived + depositsReceived,
+      paymentsReceived,
+      depositsReceived,
       newRentals,
       closedRentals,
       newClients,
-      paymentsReceived: paymentsData[0]?.total || 0,
-      topClients: topClients.map((c) => ({ fullName: c.fullName, totalPaid: c.totalPaid })),
-      topEquipment: topEquipment.map((e) => ({ name: e.name, rentalCount: e.rentalCount })),
+      topClients: topClients.map((c: any) => ({ fullName: c.fullName, totalPaid: c.totalPaid })),
+      topEquipment: topEquipment.map((e: any) => ({
+        name: e.name,
+        rentalCount: e.rentalCount,
+        totalQuantity: e.totalQuantity,
+      })),
       dailyRevenue,
     };
   }
 
-  async getOverdue() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  /**
+   * Muddati o'tgan arendalar. Worker uchun ro'yxat o'zi ochgan arendalar bilan
+   * cheklanadi — ilgari bu endpoint barcha mijozlar va telefon raqamlarini
+   * har qanday xodimga ochib berardi.
+   */
+  async getOverdue(actor: Actor) {
+    const today = startOfTzDay(new Date());
 
-    const overdueRentals = await Rental.find({
-      status: "active",
+    // Cron arendani `overdue` holatiga o'tkazadi. Ilgari bu so'rov faqat
+    // `status: "active"` ni izlardi — natijada cron ishlagan zahoti arenda
+    // muddati o'tganlar hisobotidan butunlay yo'qolib qolardi.
+    const query: Record<string, unknown> = {
+      status: { $in: OPEN_STATUSES },
       expectedEndDate: { $lt: today },
-    })
+    };
+    if (!isAdmin(actor.role)) query.createdBy = actor.id;
+
+    const overdueRentals = await Rental.find(query)
       .populate("client", "fullName phone telegramId")
-      .populate("items.equipment", "name");
+      .sort({ expectedEndDate: 1 });
 
     return overdueRentals.map((rental) => {
-      const expectedEnd = new Date(rental.expectedEndDate!);
-      const diffTime = today.getTime() - expectedEnd.getTime();
-      const overdueDays = Math.ceil(diffTime / 86400000);
-
+      const calc = calculateRental(rental);
       return {
+        _id: rental._id,
         rentalNumber: rental.rentalNumber,
         client: rental.client,
+        status: rental.status,
         expectedEndDate: rental.expectedEndDate,
-        overdueDays,
-        items: rental.items.map((item) => ({
+        overdueDays: Math.max(inclusiveTzDayCount(rental.expectedEndDate!, today) - 1, 0),
+        totalAmount: calc.totalAmount,
+        paidAmount: calc.paidAmount,
+        depositAmount: calc.depositAmount,
+        debt: calc.debt,
+        items: calc.items.map((item) => ({
           equipmentName: item.equipmentName,
-          activeQuantity: item.quantity - item.returnedQuantity,
+          activeQuantity: item.activeQuantity,
         })),
       };
     });
   }
 
+  /**
+   * Kunlik to'lovlar. Kalitlar ham, guruhlash ham bitta vaqt mintaqasida
+   * bajariladi. Ilgari kalitlar `toISOString()` bilan (UTC) yasalib,
+   * `$dateToString` esa UTC bo'yicha guruhlardi — server mintaqasi UTC
+   * bo'lmasa kalitlar mos kelmay, kunlar siljib ketardi.
+   */
   private async getDailyRevenue(startDate: Date, endDate: Date) {
     const dailyData = await Payment.aggregate([
       { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: APP_TZ } },
           amount: { $sum: "$amount" },
         },
       },
-      { $sort: { _id: 1 } },
     ]);
 
-    // Barcha kunlarni to'ldirish (0 bilan)
+    const byDate = new Map<string, number>(dailyData.map((d: any) => [d._id, d.amount]));
+
     const result: { date: string; amount: number }[] = [];
-    const current = new Date(startDate);
-    while (current <= endDate) {
-      const dateStr = current.toISOString().split("T")[0];
-      const found = dailyData.find((d) => d._id === dateStr);
-      result.push({ date: dateStr, amount: found?.amount || 0 });
-      current.setDate(current.getDate() + 1);
+    const dayCount = inclusiveTzDayCount(startDate, endDate);
+    for (let i = 0; i < dayCount; i++) {
+      const key = tzDateKey(addTzDays(startDate, i));
+      result.push({ date: key, amount: byDate.get(key) || 0 });
     }
 
     return result;

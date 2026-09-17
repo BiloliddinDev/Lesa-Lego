@@ -1,4 +1,4 @@
-import type { AuthResponse, User, Category, Equipment, Client, Rental, RentalCheck, Payment, Debt, CompanySettings, DashboardSummary, OverdueRental, MonthlyReport, EquipmentHistoryEntry } from "./types";
+import type { AuthResponse, AuditLogEntry, User, Category, Equipment, Client, Rental, RentalCheck, Payment, Debt, CompanySettings, DashboardSummary, OverdueRental, MonthlyReport, EquipmentHistoryEntry } from "./types";
 import axios from "axios";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -24,8 +24,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-        window.location.href = "/login";
+      // Login sahifasi "/" da joylashgan. Ilgari bu yerda "/login" turardi —
+      // bunday route umuman yo'q, ya'ni token muddati o'tganda foydalanuvchi
+      // login o'rniga 404 sahifasiga tushardi.
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.href = "/";
       }
     }
     return Promise.reject(error);
@@ -40,6 +43,13 @@ export const usersApi = {
     api.post<{ data: User }>("/users", { ...data, role: "WORKER" }).then((r) => r.data.data),
   update: (id: string, data: { name?: string; isActive?: boolean }) =>
     api.patch<{ data: User }>(`/users/${id}`, data).then((r) => r.data.data),
+  getAudit: (id: string, params?: { action?: string; page?: number; limit?: number }) =>
+    api
+      .get<{ data: AuditLogEntry[]; total: number; page: number; totalPages: number }>(
+        `/users/${id}/audit`,
+        { params },
+      )
+      .then((r) => r.data),
 };
 
 // Auth endpoints
@@ -93,7 +103,7 @@ export const clientsApi = {
     api.get<{ data: Client[]; total: number; page: number; totalPages: number }>("/clients", { params }).then((r) => r.data),
   getById: (id: string) =>
     api.get<{ data: Client }>(`/clients/${id}`).then((r) => r.data.data),
-  create: (data: { fullName: string; phone: string; address?: string; note?: string }) =>
+  create: (data: { fullName: string; phone: string; address?: string; telegramId?: number; note?: string }) =>
     api.post<{ data: Client }>("/clients", data).then((r) => r.data.data),
   update: (id: string, data: Partial<Client>) =>
     api.patch<{ data: Client }>(`/clients/${id}`, data).then((r) => r.data.data),
@@ -113,10 +123,17 @@ export const rentalsApi = {
     api.get<{ data: RentalCheck }>(`/rentals/${id}/check`).then((r) => r.data.data),
   returnItems: (id: string, data: { returns: { equipmentId: string; quantity: number; note?: string }[]; returnDate?: string }) =>
     api.post(`/rentals/${id}/return`, data).then((r) => r.data.data),
-  close: (id: string, data?: { endDate?: string; note?: string }) =>
+  close: (id: string, data?: { endDate?: string; note?: string; debtDueDate?: string }) =>
     api.post(`/rentals/${id}/close`, data || {}).then((r) => r.data.data),
   update: (id: string, data: { expectedEndDate?: string; note?: string; deliveryLocation?: { lat: number; lng: number; label?: string } }) =>
     api.patch<{ data: Rental }>(`/rentals/${id}`, data).then((r) => r.data.data),
+  sendPdf: (id: string, data: { type: string; toClient?: boolean }) =>
+    api
+      .post<{ data: { sent: boolean; type: string; toClient: boolean } }>(
+        `/rentals/${id}/send-pdf`,
+        data,
+      )
+      .then((r) => r.data.data),
   getPdf: (id: string, type: string) =>
     api.get(`/rentals/${id}/pdf`, { params: { type }, responseType: "blob" }).then((r) => r.data),
 };

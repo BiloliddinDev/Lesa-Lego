@@ -37,9 +37,16 @@ export default function PaymentsPage() {
     queryFn: () => paymentsApi.getAll({ limit: 50 }),
   });
 
+  // Yopilmagan arendalar: `active` VA `overdue`. Ilgari faqat `active` olinardi,
+  // ya'ni cron arendani `overdue` ga o'tkazgach — aynan qarzi bor arenda —
+  // ro'yxatdan yo'qolib, unga to'lov kiritib bo'lmasdi.
   const { data: rentals } = useQuery({
-    queryKey: ["rentals", "active"],
-    queryFn: () => rentalsApi.getAll({ status: "active", limit: 100 }),
+    queryKey: ["rentals", "open"],
+    queryFn: () => rentalsApi.getAll({ limit: 100 }),
+    select: (res) => ({
+      ...res,
+      rentals: res.rentals.filter((r) => r.status !== "completed"),
+    }),
   });
 
   const createMutation = useMutation({
@@ -59,8 +66,16 @@ export default function PaymentsPage() {
     <AppLayout>
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">To'lovlar</h2>
-          {isAdmin && (
+          <h2 className="text-lg font-semibold">
+            To'lovlar
+            {!isAdmin && (
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                (o'z arendalaringiz)
+              </span>
+            )}
+          </h2>
+          {/* Ilgari bu tugma faqat admin uchun edi — plan bo'yicha esa xodim
+              ham to'lov kirita oladi va backend buni o'z arendasiga ruxsat beradi */}
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="h-4 w-4" /> Yangi</Button>
@@ -96,12 +111,26 @@ export default function PaymentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full" onClick={() => createMutation.mutate()}>
+                <Button
+                  className="w-full"
+                  disabled={!rentalId || !amount || Number(amount) < 1 || createMutation.isPending}
+                  onClick={() => createMutation.mutate()}
+                >
                   {createMutation.isPending ? "Kutilmoqda..." : "Qo'shish"}
                 </Button>
-              </div>              </DialogContent>
-            </Dialog>
-          )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Mijoz ismi bo'yicha qidirish..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
         {isLoading ? (

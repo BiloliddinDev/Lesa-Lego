@@ -8,7 +8,10 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "lint": "eslint src/**/*.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:calc": "tsx src/scripts/verify-calc.ts",
+    "verify:utils": "tsx src/scripts/verify-utils.ts",
+    "verify": "npm run verify:calc && npm run verify:utils"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -17,7 +20,9 @@
     "dotenv": "^17.4.2",
     "envalid": "^8.0.0",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.7.0",
     "grammy": "^1.21.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.0",
     "morgan": "^1.11.0",

@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { env } from "../config/env";
 
 export interface JwtPayload {
   userId: string;
@@ -7,14 +8,13 @@ export interface JwtPayload {
 }
 
 export function signToken(payload: JwtPayload): string {
-  const secret = process.env.JWT_SECRET!;
-
-  return jwt.sign(payload, secret, {
-    expiresIn: "7d",
+  // Ilgari muddat "7d" qilib QATTIQ yozilgan edi — `JWT_EXPIRES_IN`
+  // sozlamasi o'zgartirilsa ham hech narsa o'zgarmasdi.
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
   });
 }
 
 export function verifyToken(token: string): JwtPayload {
-  const secret = process.env.JWT_SECRET!;
-  return jwt.verify(token, secret) as JwtPayload;
+  return jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 }

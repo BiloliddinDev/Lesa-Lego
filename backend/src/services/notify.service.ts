@@ -1,3 +1,4 @@
+import { InputFile } from "grammy";
 import { User } from "../models/User";
 import { env } from "../config/env";
 
@@ -21,7 +22,52 @@ async function sendMessage(chatId: number, text: string) {
   }
 }
 
+/**
+ * PDF hujjatni Telegram chatga yuboradi. `InputFile` shart — bo'sh Buffer
+ * berilsa Grammy uni fayl sifatida qabul qilmaydi.
+ */
+async function sendDocument(chatId: number, buffer: Buffer, fileName: string, caption?: string) {
+  if (!botInstance) return;
+  try {
+    await botInstance.api.sendDocument(chatId, new InputFile(buffer, fileName), {
+      caption,
+      parse_mode: "HTML",
+    });
+  } catch (err) {
+    console.error(`Failed to send document to ${chatId}:`, err);
+  }
+}
+
+function formatSum(amount: number): string {
+  return amount.toLocaleString("uz-UZ") + " so'm";
+}
+
 export const notifyService = {
+  /**
+   * Arenda hujjatini (nakladnoy/chek/shartnoma) Telegram orqali yuborish.
+   *
+   * `toClient` ATAYLAB alohida bayroq: hujjat mijozga faqat xodim aniq
+   * so'raganda ketadi, arenda ochilganda avtomatik EMAS — mijozning chatiga
+   * so'rovsiz hujjat yuborish noto'g'ri bo'lardi.
+   */
+  async sendRentalDocument(options: {
+    buffer: Buffer;
+    fileName: string;
+    caption: string;
+    client?: { telegramId?: number } | null;
+    toClient?: boolean;
+  }) {
+    const { buffer, fileName, caption, client, toClient } = options;
+
+    for (const chatId of await getAdminChatIds()) {
+      await sendDocument(chatId, buffer, fileName, caption);
+    }
+
+    if (toClient && client?.telegramId) {
+      await sendDocument(client.telegramId, buffer, fileName, caption);
+    }
+  },
+
   async rentalCreated(rental: any) {
     const adminIds = await getAdminChatIds();
     const clientDoc = rental.client as any;
@@ -31,7 +77,7 @@ export const notifyService = {
 
     const text = [
       `🆕 <b>Yangi arenda: ${rental.rentalNumber}</b>`,
-      `Mijoz: ${clientDoc.fullName || clientDoc.name}`,
+      `Mijoz: ${clientDoc.fullName}`,
       `Jihozlar:\n${itemsList}`,
       `Boshlanish: ${new Date(rental.startDate).toLocaleDateString("uz-UZ")}`,
       rental.expectedEndDate
@@ -53,7 +99,11 @@ export const notifyService = {
       `✅ <b>Arenda yopildi: ${rental.rentalNumber}</b>`,
       `Umumiy: ${finalCheck.totalAmount.toLocaleString("uz-UZ")} so'm`,
       `To'lov: ${finalCheck.paidAmount.toLocaleString("uz-UZ")} so'm`,
-      `Qarz: ${finalCheck.debt.toLocaleString("uz-UZ")} so'm`,
+      finalCheck.debt > 0
+        ? `Qarz: ${finalCheck.debt.toLocaleString("uz-UZ")} so'm`
+        : finalCheck.overpaid > 0
+          ? `Ortiqcha to'lov: ${finalCheck.overpaid.toLocaleString("uz-UZ")} so'm`
+          : "Qarz yo'q",
     ].join("\n");
 
     for (const chatId of adminIds) {
@@ -78,13 +128,55 @@ export const notifyService = {
     }
   },
 
+  /**
+   * Qarz muddati eslatmasi. Admin har doim oladi; mijozning `telegramId` si
+   * bo'lsa — unga ham yuboriladi (overview.md, 4-jarayon). `getAdminChatIds`
+   * faqat adminlarni qaytaradi, shuning uchun mijoz yo'li alohida.
+   */
+  async debtReminder(
+    debt: any,
+    rental: any,
+    client: any,
+    kind: "due_soon" | "overdue",
+    days: number,
+  ) {
+    const dueText = debt.dueDate
+      ? new Date(debt.dueDate).toLocaleDateString("uz-UZ")
+      : "belgilanmagan";
+
+    const adminText = [
+      kind === "due_soon"
+        ? `⏰ <b>Qarz muddati yaqin: ${rental?.rentalNumber || ""}</b>`
+        : `🔴 <b>Qarz muddati o'tdi: ${rental?.rentalNumber || ""}</b>`,
+      `Mijoz: ${client?.fullName || "—"}${client?.phone ? ` (${client.phone})` : ""}`,
+      `Summa: ${formatSum(debt.amount)}`,
+      kind === "due_soon" ? `Muddat: ${dueText} (${days} kun qoldi)` : `Muddat: ${dueText} (${days} kun o'tdi)`,
+    ].join("\n");
+
+    for (const chatId of await getAdminChatIds()) {
+      await sendMessage(chatId, adminText);
+    }
+
+    if (client?.telegramId) {
+      const clientText = [
+        kind === "due_soon"
+          ? "⏰ <b>Eslatma: qarz muddati yaqinlashdi</b>"
+          : "🔴 <b>Eslatma: qarz muddati o'tdi</b>",
+        `Summa: ${formatSum(debt.amount)}`,
+        `Muddat: ${dueText}`,
+        "Iltimos, to'lovni amalga oshiring.",
+      ].join("\n");
+      await sendMessage(client.telegramId, clientText);
+    }
+  },
+
   async overdueAlert(rental: any, overdueDays: number) {
     const adminIds = await getAdminChatIds();
     const clientDoc = rental.client as any;
     const text = [
       `⚠️ <b>Muddati o'tdi: ${rental.rentalNumber}</b>`,
       `${overdueDays} kun o'tdi`,
-      `Mijoz: ${clientDoc.fullName || clientDoc.name} (${clientDoc.phone})`,
+      `Mijoz: ${clientDoc.fullName} (${clientDoc.phone})`,
       rental.expectedEndDate
         ? `Kutilgan: ${new Date(rental.expectedEndDate).toLocaleDateString("uz-UZ")}`
         : "",
@@ -94,6 +186,19 @@ export const notifyService = {
 
     for (const chatId of adminIds) {
       await sendMessage(chatId, text);
+    }
+
+    // Mijozning Telegram ID si bo'lsa — unga ham eslatma
+    if (clientDoc?.telegramId) {
+      await sendMessage(
+        clientDoc.telegramId,
+        [
+          "⚠️ <b>Jihozlarni qaytarish muddati o'tdi</b>",
+          `Arenda: ${rental.rentalNumber}`,
+          `${overdueDays} kun o'tdi`,
+          "Iltimos, biz bilan bog'laning.",
+        ].join("\n"),
+      );
     }
   },
 };

@@ -1,5 +1,25 @@
 # 10 — Nasiya & Qarz (Debt)
 
+> ⚠️ **AMALDAGI MODEL (17.09.2026 dan)** — quyidagi kod namunalari dastlabki
+> loyihadan; ular `Client.totalDebt` ni `$inc` bilan o'zgartiradi. Kodda
+> BUNDAY QILINMAYDI, chunki ikkita bir-biriga qarama-qarshi manba paydo
+> bo'lardi. Haqiqiy qoidalar:
+>
+> 1. **Pulning yagona manbasi — arenda hisobi** (`services/rental-calc.ts`).
+>    `Client.totalDebt` mijozning BARCHA arendalari (yopilganlari ham)
+>    bo'yicha `calculateRental().debt` yig'indisi sifatida qayta hisoblanadi
+>    (`services/client-debt.service.ts`).
+> 2. **`Debt` hujjati — faqat muddat va eslatma qatlami** (`dueDate`,
+>    `status`). Uning summasi `totalDebt` ga QO'SHILMAYDI — aks holda bir xil
+>    pul ikki marta sanaladi.
+> 3. `Debt` arenda yopilganda qarz qolsa avtomatik ochiladi
+>    (`rental.service.ts` → `closeRental`).
+> 4. To'lovdan keyin hujjat holati arenda hisobiga moslanadi
+>    (`services/debt-status.service.ts`): qarz 0 bo'lsa `paid`, to'lov bekor
+>    qilinsa `pending` ga qaytadi.
+> 5. Muddat nazorati — `jobs/overdue-check.ts` ichida, har kuni 09:00 (APP_TZ):
+>    `dueDate - 2 kun` da eslatma, muddat o'tganda `overdue` + xabar.
+
 ## Umumiy tushuncha
 
 Nasiya — mijoz arenda tugaganda to'liq to'lay olmagan holat.

@@ -32,7 +32,11 @@ const statusLabels: Record<string, string> = {
 export default function DebtsPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string | undefined>(undefined);
-  const [payModal, setPayModal] = useState<{ debtId: string; open: boolean }>({ debtId: "", open: false });
+  const [payModal, setPayModal] = useState<{ debtId: string; max: number; open: boolean }>({
+    debtId: "",
+    max: 0,
+    open: false,
+  });
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("cash");
 
@@ -48,7 +52,7 @@ export default function DebtsPage() {
       queryClient.invalidateQueries({ queryKey: ["debts"] });
       queryClient.invalidateQueries({ queryKey: ["payments"] });
       toast.success("Qarz to'landi");
-      setPayModal({ debtId: "", open: false });
+      setPayModal({ debtId: "", max: 0, open: false });
       setPayAmount("");
     },
     onError: (err: any) => toast.error(err.response?.data?.error?.message || "Xatolik"),
@@ -84,11 +88,17 @@ export default function DebtsPage() {
                   <div className="text-sm text-muted-foreground space-y-1">
                     <p>{debt.rental.rentalNumber} — {formatCurrency(debt.amount)}</p>
                     {debt.dueDate && <p>Muddat: {formatDate(debt.dueDate)}</p>}
-                    {debt.status === "pending" && (
+                    {/* Muddati o'tgan qarz ham to'lanadi: ilgari tugma faqat
+                        "pending" da ko'rinardi, cron esa uni "overdue" ga
+                        o'tkazgach to'lash imkoni butunlay yo'qolardi. */}
+                    {debt.status !== "paid" && (
                       <Button
                         size="sm"
                         className="mt-2"
-                        onClick={() => setPayModal({ debtId: debt._id, open: true })}
+                        onClick={() => {
+                          setPayAmount(String(debt.amount));
+                          setPayModal({ debtId: debt._id, max: debt.amount, open: true });
+                        }}
                       >
                         <DollarSign className="h-4 w-4" /> To'lash
                       </Button>
@@ -110,7 +120,16 @@ export default function DebtsPage() {
           <div className="space-y-3">
             <div className="space-y-2">
               <Label>Summa</Label>
-              <Input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+              <Input
+                type="number"
+                min={1}
+                max={payModal.max}
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Qoldiq: {formatCurrency(payModal.max)}
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Usul</Label>
@@ -123,7 +142,16 @@ export default function DebtsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="w-full" onClick={() => payMutation.mutate(payModal.debtId)}>
+            <Button
+              className="w-full"
+              disabled={
+                payMutation.isPending ||
+                !payAmount ||
+                Number(payAmount) < 1 ||
+                Number(payAmount) > payModal.max
+              }
+              onClick={() => payMutation.mutate(payModal.debtId)}
+            >
               {payMutation.isPending ? "Kutilmoqda..." : "To'lash"}
             </Button>
           </div>

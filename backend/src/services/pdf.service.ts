@@ -4,6 +4,7 @@ import fs from "fs";
 import { Rental } from "../models/Rental";
 import { CompanySettings } from "../models/CompanySettings";
 import { RentalService } from "./rental.service";
+import { calculateRental, documentDayCount } from "./rental-calc";
 import { AppError } from "../utils/AppError";
 
 const FONT_DIR = path.resolve(__dirname, "../../assets/fonts");
@@ -34,10 +35,14 @@ function formatSum(amount: number): string {
   return `${Math.round(amount).toLocaleString("ru-RU")} so'm`;
 }
 
-/** Sana oralig'idagi kunlar soni (qaytarish kuni kirmaydi: 12.02 → 18.02 = 6 kun) */
+/**
+ * Kunlar soni — chek bilan AYNAN bir xil qoida bo'yicha (ikki chegara
+ * ichiga olinadi: 01.09 → 05.09 = 5 kun). Ilgari bu yerda alohida
+ * `Math.ceil` mantiqi bor edi va nakladnoy/shartnomadagi kun soni
+ * chekdagidan bir kunga farq qilardi.
+ */
 function daysBetween(from: Date, to: Date): number {
-  const diff = Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000);
-  return Math.max(diff, 1);
+  return documentDayCount(from, to);
 }
 
 type PdfDoc = InstanceType<typeof PDFDocument>;
@@ -186,44 +191,75 @@ export class PdfService {
     const doc = createDocument();
     const promise = toBuffer(doc);
 
-    drawHeader(doc, settings);
-
-    font(doc, true).fontSize(14).text("CHIQARISH VARAG'I (NAKLADNOY)", { align: "center" });
-    doc.moveDown(0.8);
-
-    drawClientInfo(doc, rental);
-
     // Kunlar soni: kutilgan qaytarish sanasigacha (yopilgan bo'lsa yopilish sanasigacha)
     const endDate = rental.endDate || rental.expectedEndDate || new Date();
     const days = daysBetween(rental.startDate, endDate);
+    // Haqiqiy hisob — chek va mijoz qarzi bilan aynan bir xil manbadan
+    const calc = calculateRental(rental);
 
-    // Mahsulotlar jadvali (umumiy helper) — faol son ko'rsatiladi
-    const grandTotal = drawItemsTable(doc, rental.items, days, (item) => item.quantity - item.returnedQuantity);
+    /**
+     * Bitta nusxani chizadi. Nakladnoy IKKI NUSXADA beriladi (overview.md):
+     * biri jihozni beruvchida, ikkinchisi oluvchida qoladi — shuning uchun
+     * bir xil mazmun ikki sahifada, har birida alohida imzo joyi bilan.
+     */
+    const drawCopy = (copyLabel: string) => {
+      drawHeader(doc, settings);
 
-    doc.moveDown(1.5);
-
-    // Jami
-    font(doc, true).fontSize(11);
-    doc.text(`Jami (${days} kun): ${formatSum(grandTotal)}`, { align: "right" });
-    doc.moveDown(0.3);
-    font(doc).fontSize(10);
-    doc.text(`Omonat: ${formatSum(rental.depositAmount)}`, { align: "right" });
-    doc.text(`To'langan: ${formatSum(rental.paidAmount)}`, { align: "right" });
-    doc.moveDown(1.5);
-
-    // Izoh
-    if (rental.note) {
-      font(doc).fontSize(9).fillColor("#555555");
-      doc.text(`Izoh: ${rental.note}`);
+      font(doc, true).fontSize(14).text("CHIQARISH VARAG'I (NAKLADNOY)", { align: "center" });
+      font(doc).fontSize(9).fillColor("#555555").text(copyLabel, { align: "center" });
       doc.fillColor("#000000");
-      doc.moveDown(1);
-    }
+      doc.moveDown(0.8);
 
-    // Imzolar
-    const y = Math.max(doc.y, 650);
-    font(doc).fontSize(10);
-    doc.text("Berdi: ______________________  (______________________)", 50, y);
-    doc.text("Oldi: ______________________  (______________________)", 50, y + 30);
+      drawClientInfo(doc, rental);
+
+      // Nakladnoy — CHIQARISH hujjati: berilgan son bo'yicha REJADAGI summa.
+      // Haqiqiy hisob-kitob quyida `rental-calc` dan alohida ko'rsatiladi,
+      // shunda reja va haqiqiy summa aralashib ketmaydi.
+      const plannedTotal = drawItemsTable(doc, rental.items, days, (item) => item.quantity);
+
+      doc.moveDown(1.5);
+
+      font(doc, true).fontSize(11);
+      doc.text(`Rejadagi summa (${days} kun): ${formatSum(plannedTotal)}`, { align: "right" });
+      doc.moveDown(0.3);
+
+      font(doc).fontSize(10);
+      if (calc.days > 0) {
+        doc.text(`Hisoblangan summa (${calc.days} kun): ${formatSum(calc.totalAmount)}`, {
+          align: "right",
+        });
+      }
+      doc.text(`Omonat (avans): ${formatSum(calc.depositAmount)}`, { align: "right" });
+      doc.text(`To'langan: ${formatSum(calc.paidAmount)}`, { align: "right" });
+      font(doc, true).fontSize(10);
+      doc.text(
+        calc.debt > 0
+          ? `Qarz: ${formatSum(calc.debt)}`
+          : calc.overpaid > 0
+            ? `Ortiqcha to'lov: ${formatSum(calc.overpaid)}`
+            : "Qarz yo'q",
+        { align: "right" },
+      );
+      doc.moveDown(1.5);
+
+      // Izoh
+      if (rental.note) {
+        font(doc).fontSize(9).fillColor("#555555");
+        doc.text(`Izoh: ${rental.note}`);
+        doc.fillColor("#000000");
+        doc.moveDown(1);
+      }
+
+      // Imzolar
+      const y = Math.max(doc.y, 650);
+      font(doc).fontSize(10);
+      doc.text("Berdi: ______________________  (______________________)", 50, y);
+      doc.text("Oldi: ______________________  (______________________)", 50, y + 30);
+    };
+
+    drawCopy("Beruvchi nusxasi");
+    doc.addPage();
+    drawCopy("Oluvchi nusxasi");
 
     doc.end();
     return promise;
@@ -373,7 +409,7 @@ export class PdfService {
     doc.moveDown(1);
 
     font(doc).fontSize(10);
-    doc.text(`2. Umumiy ijara summasi: ${formatSum(grandTotal)} so'm. Omonat: ${formatSum(rental.depositAmount)}.`);
+    doc.text(`2. Rejadagi ijara summasi: ${formatSum(grandTotal)} (${days} kun uchun). Omonat (avans): ${formatSum(rental.depositAmount)}. Yakuniy summa jihozlar qaytarilgan kunga qarab hisoblanadi.`);
     doc.moveDown(0.3);
     doc.text(`3. Ijara oluvchi jihozlarni buzilishlarsiz, belgilangan muddatda qaytarish majburiyatini oladi.`);
     doc.moveDown(0.3);
@@ -391,6 +427,22 @@ export class PdfService {
     }
     doc.text(`6. Mazkur shartnoma ikki nusxada tuzildi va har ikki tomon tomonidan imzolanadi.`);
     doc.moveDown(1.5);
+
+    // Rekvizitlar — `CompanySettings` dagi bank ma'lumotlari. Ilgari bu
+    // maydonlar sozlamalarda to'ldirilardi-yu, hech qaysi hujjatga tushmasdi.
+    const requisites = [
+      settings.inn ? `INN: ${settings.inn}` : "",
+      settings.bankName ? `Bank: ${settings.bankName}` : "",
+      settings.bankAccount ? `Hisob raqam: ${settings.bankAccount}` : "",
+    ].filter(Boolean);
+
+    if (requisites.length > 0) {
+      font(doc, true).fontSize(10).text("Ijara beruvchi rekvizitlari:");
+      font(doc).fontSize(9).fillColor("#333333");
+      requisites.forEach((line) => doc.text(line, { indent: 10 }));
+      doc.fillColor("#000000");
+      doc.moveDown(1);
+    }
 
     const y = Math.max(doc.y, 660);
     doc.text("Ijara beruvchi: ______________________  (______________________)", 50, y);

@@ -17,10 +17,21 @@ export default function NewClientPage() {
   const queryClient = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("+998");
+  const [address, setAddress] = useState("");
+  // Telegram ID ixtiyoriy: kiritilsa, mijozga qarz muddati va arenda muddati
+  // haqida bot orqali eslatma boradi (aks holda faqat adminlarga boradi)
+  const [telegramId, setTelegramId] = useState("");
   const [note, setNote] = useState("");
 
   const createMutation = useMutation({
-    mutationFn: () => clientsApi.create({ fullName, phone, note: note || undefined }),
+    mutationFn: () =>
+      clientsApi.create({
+        fullName,
+        phone,
+        address: address || undefined,
+        telegramId: telegramId ? Number(telegramId) : undefined,
+        note: note || undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Mijoz qo'shildi");
@@ -47,6 +58,22 @@ export default function NewClientPage() {
           <div className="space-y-2">
             <Label>Telefon</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998901234567" />
+          </div>
+          <div className="space-y-2">
+            <Label>Manzil (ixtiyoriy)</Label>
+            <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Toshkent, Chilonzor" />
+          </div>
+          <div className="space-y-2">
+            <Label>Telegram ID (ixtiyoriy)</Label>
+            <Input
+              type="number"
+              value={telegramId}
+              onChange={(e) => setTelegramId(e.target.value)}
+              placeholder="123456789"
+            />
+            <p className="text-xs text-muted-foreground">
+              Kiritilsa, mijozga qarz va muddat haqida bot eslatma yuboradi.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Eslatma</Label>

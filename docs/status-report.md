@@ -1,7 +1,12 @@
 # 📋 Lesa-Lego — Loyiha Status Report
 
-> **Sana:** 27 Iyul, 2026
+> **Sana:** 17 Sentabr, 2026
 > **Loyiha:** Qurilish jihozlarini ijaraga berish boshqaruv tizimi (Telegram WebApp)
+>
+> ⚠️ Bu hujjat 27.07.2026 dagi versiyada "Backend 90% / Frontend 85%" deb
+> turgan, lekin o'sha paytdayoq to'g'ri bo'lmagan: qarz avtomatikasi, worker
+> ruxsatlari va mijozga xabar yozilmagan edi. Quyida — auditdan keyingi
+> HAQIQIY holat.
 
 ---
 
@@ -9,256 +14,126 @@
 
 | Bo'lim | Holat | Izoh |
 |--------|-------|------|
-| **Backend** | ✅ To'liq (90%) | Barcha modellar, routelar, servislar, validatsiyalar, middleware |
-| **Frontend** | ✅ To'liq (85%) | Barcha sahifalar, komponentlar, hooklar, auth, layout |
-| **Integratsiya** | ✅ Ishlaydi | Backend ↔ Frontend bog'langan, JWT auth |
-| **Dev-auth** | ✅ Ishlaydi | Dev-login, dev-setup, dev-users — faqat development muhitida |
+| **Hisob-kitob yadrosi** | ✅ Ishonchli | `rental-calc` — yagona manba, `npm run verify` bilan qoplangan |
+| **Backend API** | ✅ To'liq | 10 modul, ruxsatlar backendda majburlangan |
+| **Qarz/nasiya oqimi** | ✅ Avtomatik | Yopishda avto-qarz, muddat croni, eslatmalar |
+| **Frontend** | 🟡 Ishlaydi | Barcha asosiy sahifalar bor; ba'zi yangi maydonlar UI'da yo'q (5-bo'lim) |
+| **Baza bilan sinov** | ❌ Qilinmagan | Eng katta bo'shliq — 6-bo'limga qarang |
 
 ---
 
-## 2. 🏗 Backend — Bajarilgan
+## 2. 🔧 17.09.2026 auditida tuzatilganlar
 
-### 2.1 Modellar (9 ta)
-- ✅ `User` — telegramId, name, role (ADMIN/WORKER), isActive
-- ✅ `Category` — name, description, order, isActive
-- ✅ `Equipment` — category ref, name, totalQuantity, rentedQuantity, dailyRate
-- ✅ `Client` — fullName, phone, telegramId, totalDebt, isActive
-- ✅ `Rental` — rentalNumber (ARN-2025-XXXX), items[], status, deposit, paid
-- ✅ `Payment` — rental ref, client ref, amount, method (cash/card/transfer)
-- ✅ `Debt` — client ref, rental ref, amount, dueDate, status
-- ✅ `AuditLog` — userId, action, resourceType, before/after
-- ✅ `CompanySettings` — companyName, logo, stamp, signature, template
+### 2.1 Ruxsatlar (xavfsizlik)
+| Muammo | Holat |
+|--------|-------|
+| `POST /rentals/:id/return` va `/close` — egalik tekshiruvi yo'q edi, worker begona arendani yopardi | ✅ tuzatildi |
+| `POST /payments` — worker begona arendaga to'lov kiritardi | ✅ tuzatildi |
+| `POST /debts`, `/debts/:id/pay` — tekshiruvsiz edi | ✅ tuzatildi |
+| `GET /payments`, `GET /debts` — har qanday xodim butun kassa oborotini ko'rardi | ✅ o'zi ochgan arendalar doirasiga cheklandi |
+| `GET /reports/overdue`, `/equipment/:id/history` — begona mijozlar ma'lumoti ochiq edi | ✅ cheklandi |
+| Oxirgi faol adminni bloklash mumkin edi (tizimga kirish yo'qolardi) | ✅ taqiqlandi |
 
-### 2.2 Middleware
-- ✅ `authMiddleware` — JWT verify, user load
-- ✅ `requireAdmin` — role check
-- ✅ `validate` — Zod schema validation
-- ✅ `errorHandler` — global error handler
+Yagona manba: `services/access.service.ts`.
 
-### 2.3 Auth
-- ✅ Telegram initData login
-- ✅ `POST /api/auth/dev-login` — Development login (existing user)
-- ✅ `POST /api/auth/dev-setup` — Development setup (birinchi admin yaratish)
-- ✅ `GET /api/auth/dev-users` — Development users list
-- ✅ `GET /api/auth/me` — Joriy user ma'lumoti
-- ✅ `PATCH /api/auth/me` — O'z ma'lumotini yangilash
+### 2.2 Pul va qarz
+| Muammo | Holat |
+|--------|-------|
+| Arenda yopilishi bilan mijoz qarzi `totalDebt` dan YO'QOLARDI | ✅ barcha arendalar sanaydi (yopilgan arenda hisobi `endDate` da muzlaydi) |
+| `reconcileAll()` server ko'tarilganda o'sha qarzlarni nolga tushirardi | ✅ filtr olib tashlandi |
+| Arenda yopilganda `Debt` hujjati ochilmasdi (qo'lda kerak edi) | ✅ avtomatik (`debtDueDate` ixtiyoriy) |
+| `Debt.dueDate` o'qilmasdi: na eslatma, na `overdue` holati | ✅ cron (09:00, APP_TZ): 2 kun oldin eslatma + muddat o'tganda `overdue` |
+| To'lovdan keyin qarz hujjati "pending" bo'lib osilib qolardi | ✅ `debt-status.service.ts` moslaydi (ikki tomonlama) |
 
-### 2.4 API Endpoints (to'liq CRUD)
-- ✅ **Categories** — GET, POST, PATCH, DELETE (Admin CRUD)
-- ✅ **Equipment** — GET, POST, PATCH, DELETE + `/:id/quantity` + `/:id/history`
-- ✅ **Clients** — GET, POST, PATCH, DELETE (search, pagination)
-- ✅ **Rentals** — GET, POST, `/:id/return`, `/:id/close`, `/:id/pdf`, `/:id/check`
-- ✅ **Payments** — GET, POST, DELETE
-- ✅ **Debts** — GET, POST, `/:id/pay`
-- ✅ **Settings** — GET, PATCH (Admin only)
-- ✅ **Reports** — `/summary`, `/overdue` (Admin only)
-- ✅ **Users** — GET, POST, PATCH, `/:id/audit` (Admin only)
-
-### 2.5 Services
-- ✅ **rental.service** — create, return (qisman qaytarish), close (to'liq yopish), check (segment-based hisob-kitob), equipmentHistory
-- ✅ **payment.service** — create, delete (rental.paidAmount + client.totalDebt update)
-- ✅ **debt.service** — create, pay (debt + payment bir vaqtda)
-- ✅ **pdf.service** — Nakladnoy, Check generatsiya
-- ✅ **notify.service** — Telegram bot xabarlari
-- ✅ **report.service** — dashboard summary, overdue list
-- ✅ **equipment.service** — adjustQuantity (AuditLog bilan)
-- ✅ **user.service** — worker CRUD, audit log
-
-### 2.6 Qo'shimcha
-- ✅ **Bot** — Grammy.js, /start → WebApp link, notifications
-- ✅ **Cron job** — overdue-check (har kuni)
-- ✅ **Swagger** — `/api-docs` da to'liq dokumentatsiya
-- ✅ **Role-based access** — Worker faqat o'z arendalarini ko'radi (backend enforced)
+### 2.3 Boshqa buglar
+| Muammo | Holat |
+|--------|-------|
+| **Telegram ID siz ikkinchi mijozni yaratib bo'lmasdi** — `{telegramId: undefined}` Mongoose'da `{}` ga aylanib, `$or` ichida hamma hujjatga mos kelardi (har safar 409) | ✅ tuzatildi |
+| `PATCH /equipment/:id` orqali ombor miqdorini band jihozlardan kam qilish mumkin edi | ✅ tekshiruv qo'shildi |
+| Frontend 401 da mavjud bo'lmagan `/login` ga yo'naltirardi (404) | ✅ `/` ga |
+| `JWT_EXPIRES_IN` sozlamasi e'tiborga olinmasdi (qattiq "7d") | ✅ env dan |
+| Arenda raqamidagi yil server TZ'idan olinardi (31-dekabr kechasi noto'g'ri yil) | ✅ APP_TZ dan |
+| Telegram hash oddiy `===` bilan solishtirilardi | ✅ `timingSafeEqual` |
+| Qidiruv matni to'g'ridan-to'g'ri `$regex` ga tushardi | ✅ ekranlanadi |
+| Jihozi bor kategoriyani o'chirish mumkin edi | ✅ taqiqlandi |
+| Nakladnoy 1 nusxa edi (plan: 2 nusxa) | ✅ Beruvchi + Oluvchi sahifalari |
+| Xavfsizlik header'lari va so'rov chegarasi yo'q edi | ✅ helmet + rate-limit (login: 20/15daq, API: 300/daq) |
 
 ---
 
-## 3. 🎨 Frontend — Bajarilgan
+## 3. 🏗 Backend — mavjud imkoniyatlar
 
-### 3.1 Foundation
-- ✅ **Tech stack** — Next.js 16, React 19, Tailwind CSS v4, shadcn/ui
-- ✅ **shadcn components** — button, input, card, dialog, badge, separator, select, label, textarea, skeleton, avatar, tabs
-- ✅ **API client** — Axios with interceptors (auto-token, 401 redirect)
-- ✅ **Types** — Barcha TypeScript interfacelar
-- ✅ **Auth context** — useAuth hook (dev-login/dev-setup)
-- ✅ **QueryClient** — TanStack Query provider
-- ✅ **Utils** — cn(), formatCurrency(), formatDate(), formatDateTime()
+- **Modellar (9):** User, Category, Equipment, Client, Rental, Payment, Debt, AuditLog, CompanySettings
+- **Auth:** Telegram initData (HMAC + 24 soat muddat) + JWT; dev-login faqat `NODE_ENV=development` da
+- **API:** Categories, Equipment, Clients, Rentals, Payments, Debts, Settings, Reports, Users
+- **Hisob-kitob:** `rental-calc` — kunlik jadval, segmentlar, qarz/ortiqcha to'lov; barcha kun chegaralari `APP_TZ` bo'yicha
+- **Ombor:** atomik band qilish (`$expr` + `$inc`), server startida `reconcileAll()` avtomatik tuzatish
+- **PDF:** nakladnoy (2 nusxa), chek, shartnoma — summalar `rental-calc` dan
+- **Bot:** Grammy; adminlarga arenda/to'lov/muddat xabarlari, mijozga qarz va muddat eslatmasi
+- **Cron:** har kuni 09:00 (APP_TZ) — arenda muddati + qarz muddati
+- **Audit:** har bir muhim amal `AuditLog` ga
 
-### 3.2 Pages
-| Page | Yo'nalish | Xususiyatlari |
-|------|-----------|---------------|
-| `/` | Login | Dev-login + dev-setup, user select |
-| `/dashboard` | Dashboard | Admin: summary stats, Worker: o'z arendalari |
-| `/rentals` | Arendalar | List + filter (status, createdBy) |
-| `/rentals/new` | Yangi arenda | react-hook-form + zod, item qo'shish |
-| `/rentals/[id]` | Arenda detail | Status, items, return/close/payment actions |
-| `/clients` | Mijozlar | List + search + pagination |
-| `/clients/new` | Yangi mijoz | Form |
-| `/clients/[id]` | Mijoz detail | Ma'lumot + arendalar tarixi |
-| `/equipment` | Ombor | Category tabs, grid, ijaraga berish, tarix, edit |
-| `/payments` | To'lovlar | List + create (Admin) |
-| `/debts` | Qarzdorlar | List + to'lash dialog |
-| `/categories` | Kategoriyalar | Admin CRUD |
-| `/workers` | Xodimlar (Admin) | List + create + block/unblock |
-| `/settings` | Sozlamalar (Admin) | Company info, logo, stamp |
-| `/reports` | Hisobotlar (Admin) | Summary + overdue list |
+## 4. 🎨 Frontend — mavjud sahifalar
 
-### 3.3 Layout
-- ✅ **AppLayout** — Mobil-friendly bottom navigation
-- ✅ **Role-based nav** — Admin barchasini ko'radi, Worker faqat o'ziga keraklisini
-- ✅ **Admin-only** — Workers, Categories, Settings, Reports sahifalari
+Login (`/`, Telegram avto-kirish + dev rejim), Dashboard, Arendalar (ro'yxat/yangi/detal, PDF yuklab olish), Mijozlar (ro'yxat/yangi/detal + tahrirlash), Ombor (kategoriya tablar, tez arenda, tarix, tahrirlash), To'lovlar, Qarzdorlar, Kategoriyalar, Xodimlar, Sozlamalar, Hisobotlar (summary/oylik/overdue).
 
-### 3.4 Warehouse (Ombor) mode
-- ✅ "Ijaraga berish" tugmasi har bir karta uchun
-- ✅ Tez arenda dialogi (mijoz, miqdor, start, deposit)
-- ✅ Miqdor validatsiyasi (max cheklov, backend tekshirish)
-- ✅ Mavjud/band miqdor ko'rsatish
-- ✅ **Harakatlar tarixi** dialogi (rentalNumber, client, sana, qaytarilgan/qaytarilmagan)
-- ✅ **Edit dialog** — name, description, dailyRate, totalQuantity, isActive
-
-### 3.5 Security (Frontend)
-- ✅ Admin-only tugmalar yashirilgan
-- ✅ Worker faqat o'z arendalarini ko'radi (createdBy filter)
-- ✅ Login page — token bilan avtomatik yo'naltirish
-- ✅ 401 interceptor — avtomatik logout
+Stack: Next.js 16, React 19, Tailwind v4, shadcn/ui, TanStack Query, RHF + Zod, Axios.
 
 ---
 
-## 4. ✅ Ishlayotgan xususiyatlar
-
-1. **Dev auth** — Login, user yaratish, token olish
-2. **Ombor** — Jihozlarni ko'rish, kategoriya filter, qidirish
-3. **Ijara berish** — Tez arenda (ombordan), yangi arenda (rentals/new)
-4. **Arenda yopish** — Qisman qaytarish (return), to'liq yopish (close)
-5. **To'lov** — To'lov kiritish (Admin), rental.paidAmount update
-6. **Qarzdorlar** — Qarz ko'rish, to'lash
-7. **Mijoz** — Qo'shish, ko'rish, qidirish
-8. **Kategoriya** — CRUD
-9. **Xodimlar** — Qo'shish, block/unblock
-10. **Harakatlar tarixi** — Har bir jihoz uchun
-11. **Edit jihoz** — name, description, narx, miqdor, faol/faolsiz
-12. **Dashboard** — Admin summary, Worker o'z arendalari
-13. **Hisobotlar** — Summary + overdue (Admin)
-14. **Role management** — Admin/Worker farqi (frontend + backend)
-
----
-
-## 5. ❌ Yetishmayotgan / To'liq emas
+## 5. ❌ Hali qilinmagan
 
 ### 5.1 Frontend
-| # | Feature | Muhimlik | Izoh |
-|---|---------|----------|------|
-| 1 | **Clients edit** | 🟡 O'rta | PATCH /clients/:id endpoint bor, lekin frontend edit dialog yo'q |
-| 2 | **Equipment miqdor sozlash (adjustQuantity)** | 🟡 O'rta | Backend endpoint bor, frontend dialog yo'q (sabab bilan) |
-| 3 | **Clients detail page** | 🟢 Past | Mijoz arendalari ro'yxati oddiy, filter yo'q |
-| 4 | **Rental detail page** | 🟢 Past | Return/close/payment UX ni yaxshilash mumkin |
-| 5 | **Backend validation** | 🟢 Past | `updateEquipment` da totalQuantity >= rentedQuantity tekshirilmaydi |
-| 6 | **PDF download** | 🟡 O'rta | Backend endpoint bor, frontend da download tugmasi yo'q |
-| 7 | **Notifications** | 🟢 Past | Bot notification uchun UI yo'q |
-| 8 | **Loading states** | 🟢 Past | Ba'zi joylarda loading/error states yaxshilash mumkin |
-| 9 | **Telegram WebApp integration** | 🔴 Muxim | Hozircha faqat dev-mode, Telegram initData auth yozilmagan |
-| 10 | **Deployment** | 🔴 Muxim | Fly.io / Vercel deploy qilinmagan |
+| # | Nima | Muhimlik |
+|---|------|----------|
+| 1 | **Logotip / pechat / imzo rasmi** — `CompanySettings` da maydon bor, PDF'ga chizilmaydi, yuklash oynasi ham yo'q | 🟠 O'rta |
+| 2 | Rate-limit (429) xatosi uchun alohida xabar | 🟢 Past |
 
-### 5.2 Backend
-| # | Feature | Muhimlik | Izoh |
-|---|---------|----------|------|
-| 1 | **Telegram initData auth** | 🔴 Muxim | Hozircha faqat dev-login, Telegram WebApp auth yo'q |
-| 2 | **updateEquipment validation** | 🟢 Past | totalQuantity >= rentedQuantity tekshirilmaydi |
-| 3 | **admin audit log** | 🟢 Past | AuditLog'dan foydalanuvchi admin paneli yo'q |
-| 4 | **Client totalDebt calculation** | 🟢 Past | Hozir manual, rental.paidAmount ga qarab auto hisoblanmaydi |
-| 5 | **Tests** | 🟢 Past | Unit testlar yo'q |
+> Yopilganlar (17.09.2026): qarz muddati maydoni, ombor miqdorini sozlash
+> oynasi, xodim audit tarixi, hujjatni Telegramga yuborish tugmasi, mijoz
+> qidiruvi (arenda ochish oynalarida), mijoz Telegram ID/manzil maydonlari.
+
+### 5.2 Backend / umumiy
+| # | Nima | Muhimlik |
+|---|------|----------|
+| 1 | **Avtomatik testlar yo'q** — faqat `npm run verify` (sof funksiyalar) | 🟠 O'rta |
+| 2 | Tranzaksiya (multi-document) ishlatilmaydi — o'rniga post-commit + `reconcileAll()` | 🟡 Past |
+| 3 | Deploy (Fly.io/Vercel) sozlanmagan | 🟠 O'rta |
+| 4 | Onlayn to'lov, multi-filial, inventarizatsiya — ataylab scope'dan tashqarida | — |
 
 ---
 
-## 6. 🧱 Stack (joriy)
+## 6. 🧪 Sinov holati — MUHIM
 
+```bash
+cd backend && npm run verify      # rental-calc + utils (sof funksiyalar)
+cd backend && npx tsc --noEmit    # tiplar
+cd frontend && npx tsc --noEmit   # tiplar
 ```
-Backend:
-  Node.js + Express + TypeScript
-  MongoDB + Mongoose
-  Zod (validation)
-  JWT (auth)
-  Grammy.js (Telegram bot)
-  PDFKit (PDF generatsiya)
-  node-cron
 
-Frontend:
-  Next.js 16 + React 19 + TypeScript
-  Tailwind CSS v4
-  shadcn/ui (manually created)
-  TanStack Query v5
-  React Hook Form + Zod
-  Axios
-  Lucide React (icons)
-  Sonner (toast)
-  date-fns
-  recharts (dashboard charts)
-```
+Bularning hammasi ✅ o'tadi. **Lekin ular bazaga bog'liq mantiqni
+tekshirmaydi.** Ruxsat doiralari, qarz sanog'i, avto-qarz va cron hech qachon
+haqiqiy baza bilan ishlatib ko'rilmagan.
+
+**Tavsiya etilgan qo'lda sinov (dev bazada, admin + worker bilan):**
+
+1. Worker mijoz qo'shadi (Telegram ID siz — ikkitasini ketma-ket, 409 chiqmasligi kerak)
+2. Worker arenda ochadi → ombor soni kamayadi
+3. Boshqa worker o'sha arendani yopishga urinadi → **403**
+4. Qisman qaytarish → chek summasi kamayadi, ombor qisman qaytadi
+5. Yopish (qarz qoldirib, `debtDueDate` bilan) → `Debt` avtomatik ochiladi, `totalDebt` saqlanadi
+6. To'lov kiritish → qarz kamayadi, to'liq to'langanda `Debt` "paid" ga o'tadi
+7. Admin to'lovni bekor qiladi → qarz qaytadi, `Debt` "pending" ga qaytadi
+8. Serverni qayta ishga tushirish → `[Reconcile]` logida "0 jihoz tuzatildi" bo'lishi kerak
+
+**Telegram va PDF (alohida sinaladi — kod darajasida tayyor, ishlatib ko'rilmagan):**
+
+9. Arenda ochish → adminlar chatiga nakladnoy PDF avtomatik kelishi kerak
+10. Arenda sahifasi → PDF → "Adminlarga" / "Mijozga ham" tugmalari
+11. Mijozda Telegram ID yo'q bo'lsa "Mijozga ham" → 400 va tushunarli xabar
+12. Shartnoma PDF'da bank rekvizitlari (INN, bank, hisob raqam) ko'rinishi
+13. Nakladnoy PDF — 2 sahifa: "Beruvchi nusxasi" va "Oluvchi nusxasi"
 
 ---
 
-## 7. 📁 Fayl strukturasi (qisqacha)
-
-```
-lesa-lego/
-├── backend/
-│   ├── src/
-│   │   ├── app.ts              # Express setup, routes
-│   │   ├── bot/                # Telegram bot (Grammy)
-│   │   ├── config/             # DB, env, swagger
-│   │   ├── jobs/               # Cron (overdue check)
-│   │   ├── middleware/         # auth, validate, errorHandler
-│   │   ├── models/             # 9 ta model
-│   │   ├── routes/             # 10 ta route file
-│   │   ├── services/           # 12 ta service
-│   │   ├── types/              # express.d.ts, auth.types
-│   │   ├── utils/              # AppError, jwt, telegramAuth
-│   │   └── validation/         # Zod schemas (9 ta)
-│   └── docs/swagger.yaml       # API dokumentatsiya
-│
-├── frontend/
-│   ├── app/
-│   │   ├── page.tsx            # Login
-│   │   ├── layout.tsx          # Root layout
-│   │   ├── providers.tsx       # QueryClient + Auth
-│   │   ├── globals.css         # Tailwind CSS
-│   │   ├── dashboard/          # Dashboard
-│   │   ├── rentals/            # Arendalar (list, new, [id])
-│   │   ├── clients/            # Mijozlar (list, new, [id])
-│   │   ├── equipment/          # Ombor
-│   │   ├── payments/           # To'lovlar
-│   │   ├── debts/              # Qarzdorlar
-│   │   ├── categories/         # Kategoriyalar (Admin)
-│   │   ├── workers/            # Xodimlar (Admin)
-│   │   ├── settings/           # Sozlamalar (Admin)
-│   │   └── reports/            # Hisobotlar (Admin)
-│   ├── components/
-│   │   ├── ui/                 # shadcn komponentlar
-│   │   └── layout/             # AppLayout
-│   ├── hooks/                  # use-auth
-│   └── lib/                    # api, types, utils, validations
-│
-└── docs/                       # Dokumentatsiya
-```
-
----
-
-## 8. 🎯 Keyingi qadamlar (tavsiya)
-
-### Darhol qilish mumkin (kichik):
-1. **Clients edit** — mijoz tahrirlash dialogi
-2. **Equipment adjustQuantity** — sabab bilan miqdor sozlash
-3. **Rental detail** — qaytarish va yopish UX ni yaxshilash
-
-### Muhim (deploy uchun):
-4. **Telegram initData auth** — real Telegram WebApp autentifikatsiya
-5. **npm install + build** — frontend ni production build qilish
-
-### Kelajak:
-6. Unit testlar
-7. Multi-branch qo'llab-quvvatlash
-8. Onlayn to'lov (Payme/Click)
-9. Ombor inventarizatsiyasi
-
----
-
-*Hujjat avtomatik generatsiya qilingan. Agar biror narsa o'zgargan bo'lsa, yangilab turing.*
+*Oxirgi yangilanish: 17.09.2026 auditi. O'zgarish kiritsangiz — shu hujjatni ham yangilang.*

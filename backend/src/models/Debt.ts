@@ -23,9 +23,10 @@ const debtSchema = new Schema<IDebt>(
       required: true,
     },
     amount: {
+      // Qoldiq summa. To'liq to'langanda 0 bo'ladi, shuning uchun min 0.
       type: Number,
       required: true,
-      min: 1,
+      min: 0,
     },
     dueDate: {
       type: Date,

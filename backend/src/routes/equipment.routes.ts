@@ -16,7 +16,10 @@ router.use(authMiddleware);
 
 router.get("/:id/history", async (req, res, next) => {
   try {
-    const history = await rentalService.getEquipmentHistory(req.params.id);
+    const history = await rentalService.getEquipmentHistory(req.params.id, {
+      id: req.user._id.toString(),
+      role: req.user.role,
+    });
     res.json({ data: history });
   } catch (error) {
     next(error);

@@ -11,4 +11,6 @@ export const env = cleanEnv(process.env, {
   WEBAPP_URL: url(),
   JWT_SECRET: str(),
   JWT_EXPIRES_IN: str({ default: '7d' }),
+  // Biznes vaqt mintaqasi — kunlik hisob-kitob va hisobot kun chegaralari shunga tayanadi
+  APP_TZ: str({ default: 'Asia/Tashkent' }),
 });
