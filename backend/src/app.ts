@@ -102,8 +102,17 @@ const start = async () => {
       console.error("[Reconcile] Bazani tuzatib bo'lmadi:", err);
     }
 
-    startBot();
-    startOverdueCheckJob();
+    if (env.ENABLE_BOT) {
+      startBot();
+    } else {
+      console.log("[Bot] ENABLE_BOT=false — bot ishga tushirilmadi");
+    }
+
+    if (env.ENABLE_CRON) {
+      startOverdueCheckJob();
+    } else {
+      console.log("[Cron] ENABLE_CRON=false — jadval ishga tushirilmadi");
+    }
     app.listen(env.PORT, () => {
       console.log(
         `Server is running on port ${env.PORT} in ${env.NODE_ENV} mode`,

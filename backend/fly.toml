@@ -1,23 +1,46 @@
-# fly.toml app configuration file generated for lesa-lego on 2026-08-01T11:23:47Z
+# Fly.io konfiguratsiyasi — Lesa Lego backend
 #
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# DIQQAT: bu yerdagi `app` nomi Fly'dagi ilova nomi bilan AYNAN mos kelishi
+# kerak. Dashboard'da ilova `lesa-lego-bace` deb turibdi — agar deploy shu
+# ilovaga qilinsa, quyidagi nomni ham shunga o'zgartiring (yoki
+# `fly deploy -a <nom>` bilan aniq ko'rsating).
 
 app = 'lesa-lego'
 primary_region = 'ams'
 
 [build]
 
+# Ilova qaysi portda tinglaydi.
+# MUHIM: `src/config/env.ts` da PORT default 5000. Fly esa `internal_port`
+# ga so'rov yuboradi — ikkisi mos kelmasa proxy ilovani topa olmaydi va
+# "Proxy not finding machines to route requests" xatosi chiqadi.
+[env]
+  PORT = '8080'
+  NODE_ENV = 'production'
+
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+
+  # Bot (long polling) va cron doimiy ishlab turishi kerak.
+  # `auto_stop` bilan mashina uxlab qolsa: Telegram xabarlari kelmaydi va
+  # har kuni 09:00 dagi muddat tekshiruvi umuman bajarilmaydi.
+  auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
+  # Sog'liq tekshiruvi — mashina ko'tarilmasa Fly buni darhol ko'rsatadi
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '20s'
+    method = 'GET'
+    path = '/health'
+
 [[vm]]
-  memory = '1gb'
+  # 256MB Node + Mongoose + PDFKit uchun juda tor — PDF generatsiyasida
+  # mashina OOM bo'lib qayta ishga tushishi mumkin.
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256

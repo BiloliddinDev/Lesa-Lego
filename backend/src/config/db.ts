@@ -1,8 +1,20 @@
 import dns from "node:dns";
-// Ba'zi provayderlar Atlas'ning SRV yozuvini qaytarmaydi — DNS'ni ochiq serverga qaratamiz.
-// DIQQAT: bu butun process uchun amal qiladi. Agar MONGODB_URI lokal yoki ichki
-// (VPN) hostga qaratilsa, bu qatorni o'chirish kerak bo'lishi mumkin.
-dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
+/**
+ * Ba'zi lokal provayderlar Atlas'ning SRV yozuvini qaytarmaydi — shunda
+ * DNS'ni ochiq serverga qaratish yordam beradi.
+ *
+ * LEKIN bu butun process uchun amal qiladi va SERVERDA (Fly.io, Docker)
+ * zarar qiladi: platformaning o'z resolveri chetlab o'tiladi, ichki
+ * (`.internal`) nomlar ishlamay qoladi va ba'zi tarmoqlarda 53-port
+ * yopiq bo'lgani uchun DNS umuman javob bermaydi.
+ *
+ * Shuning uchun endi FAQAT `USE_PUBLIC_DNS=true` bo'lganda yoqiladi.
+ */
+if (process.env.USE_PUBLIC_DNS === "true") {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+  console.log("[DNS] Ommaviy DNS serverlari ishlatilmoqda (8.8.8.8)");
+}
 
 import mongoose from "mongoose";
 import { env } from "./env.js";
