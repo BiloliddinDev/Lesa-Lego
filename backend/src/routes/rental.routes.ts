@@ -6,6 +6,7 @@ import {
   createRentalSchema,
   returnItemsSchema,
   closeRentalSchema,
+  updateRentalSchema,
 } from "../validation/rental.validation";
 import { authMiddleware, requireAdmin } from "../middleware/auth";
 
@@ -51,6 +52,13 @@ router.get("/:id", async (req, res, next) => {
 
 router.get("/:id/check", async (req, res, next) => {
   try {
+    // Worker faqat o'z arendasining chekini ko'radi (ilgari bu tekshiruv
+    // faqat GET /:id da bor edi, chek va PDF ochiq qolgan edi)
+    await rentalService.assertRentalAccess(
+      req.params.id,
+      req.user._id.toString(),
+      req.user.role,
+    );
     const check = await rentalService.getRentalCheck(req.params.id);
     res.json({ data: check });
   } catch (error) {
@@ -69,6 +77,12 @@ router.post("/", validate(createRentalSchema), async (req, res, next) => {
 
 router.post("/:id/return", validate(returnItemsSchema), async (req, res, next) => {
   try {
+    // Worker faqat o'z arendasidan jihoz qaytara oladi
+    await rentalService.assertRentalAccess(
+      req.params.id,
+      req.user._id.toString(),
+      req.user.role,
+    );
     const returnDate = req.body.returnDate ? new Date(req.body.returnDate) : new Date();
     const result = await rentalService.returnItems(req.params.id, req.body.returns, returnDate, req.user._id.toString());
     res.json({ data: result });
@@ -79,15 +93,26 @@ router.post("/:id/return", validate(returnItemsSchema), async (req, res, next) =
 
 router.post("/:id/close", validate(closeRentalSchema), async (req, res, next) => {
   try {
+    // Worker faqat o'z arendasini yopa oladi
+    await rentalService.assertRentalAccess(
+      req.params.id,
+      req.user._id.toString(),
+      req.user.role,
+    );
     const endDate = req.body.endDate ? new Date(req.body.endDate) : new Date();
-    const result = await rentalService.closeRental(req.params.id, endDate, req.user._id.toString());
+    const result = await rentalService.closeRental(
+      req.params.id,
+      endDate,
+      req.user._id.toString(),
+      req.body.debtDueDate ? new Date(req.body.debtDueDate) : undefined,
+    );
     res.json({ data: result });
   } catch (error) {
     next(error);
   }
 });
 
-router.patch("/:id", requireAdmin, async (req, res, next) => {
+router.patch("/:id", requireAdmin, validate(updateRentalSchema), async (req, res, next) => {
   try {
     const rental = await rentalService.updateRental(req.params.id, req.body);
     res.json({ data: rental });
@@ -98,6 +123,11 @@ router.patch("/:id", requireAdmin, async (req, res, next) => {
 
 router.get("/:id/pdf", async (req, res, next) => {
   try {
+    await rentalService.assertRentalAccess(
+      req.params.id,
+      req.user._id.toString(),
+      req.user.role,
+    );
     const type = (req.query.type as string) || "nakladnoy";
     let pdfBuffer: Buffer;
 

@@ -70,6 +70,19 @@ export const UserService = {
       throw new AppError("Foydalanuvchi topilmadi", 404, "NOT_FOUND");
     }
 
+    // Oxirgi faol adminni bloklab bo'lmaydi — aks holda tizimga kirish
+    // huquqi butunlay yo'qoladi va uni qaytarish faqat baza orqali mumkin.
+    if (dto.isActive === false && user.role === "ADMIN" && user.isActive) {
+      const otherAdmins = await User.countDocuments({
+        role: "ADMIN",
+        isActive: true,
+        _id: { $ne: user._id },
+      });
+      if (otherAdmins === 0) {
+        throw new AppError("Oxirgi faol adminni bloklab bo'lmaydi", 400, "LAST_ADMIN");
+      }
+    }
+
     if (dto.name !== undefined) user.name = dto.name;
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
 

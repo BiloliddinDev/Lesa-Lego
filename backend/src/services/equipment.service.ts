@@ -3,6 +3,7 @@ import { Equipment } from "../models/Equipment";
 import { AuditLog } from "../models/AuditLog";
 import { categoryService } from "../services/category.service";
 import { AppError } from "../utils/AppError";
+import { escapeRegex } from "../utils/regex";
 import mongoose from "mongoose";
 
 export class EquipmentService {
@@ -14,7 +15,7 @@ export class EquipmentService {
       query.$expr = { $gt: ["$totalQuantity", "$rentedQuantity"] };
     }
     if (filters.search) {
-      query.name = { $regex: filters.search, $options: "i" };
+      query.name = { $regex: escapeRegex(filters.search), $options: "i" };
     }
 
     return await Equipment.find(query).populate("category", "name");
@@ -57,6 +58,13 @@ export class EquipmentService {
       const category = await categoryService.getCategoryById(data.categoryId);
       if (!category) throw new AppError("Kategoriya topilmadi", 404);
       equipment.category = data.categoryId;
+    }
+
+    // Ombor miqdorini pasaytirish `PATCH /:id` orqali ham mumkin edi va bu
+    // yerda hech qanday tekshiruv yo'q edi — band jihozlardan kam qilib
+    // qo'yilsa, `availableQuantity` manfiy bo'lib ombor hisobi buzilardi.
+    if (data.totalQuantity !== undefined && data.totalQuantity < equipment.rentedQuantity) {
+      throw new AppError("Ombor miqdori band jihozlardan kam bo'lishi mumkin emas", 400);
     }
 
     Object.assign(equipment, data);

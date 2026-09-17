@@ -835,9 +835,17 @@ Arenda to'liq yopish.
 ```json
 {
   "endDate": "2025-06-29T00:00:00Z",
-  "note": "Hamma narsa tartibda"
+  "note": "Hamma narsa tartibda",
+  "debtDueDate": "2025-07-15T00:00:00Z"
 }
 ```
+
+> Yopilganda qarz qolsa — `Debt` hujjati AVTOMATIK ochiladi.
+> `debtDueDate` (ixtiyoriy) — o'sha qarzning to'lov muddati; cron shunga
+> qarab 2 kun oldin eslatma yuboradi va muddat o'tganda `overdue` qiladi.
+> Javobda `debt` maydoni qaytadi (qarz bo'lmasa `null`).
+
+> **Ruxsat:** Worker faqat O'ZI ochgan arendani yopa oladi (403 aks holda).
 
 **Response 200:**
 
@@ -901,6 +909,8 @@ Content-Disposition: attachment; filename="ARN-2025-0005-nakladnoy.pdf"
 
 To'lovlar ro'yxati.
 **Auth:** Admin | Worker
+**Doira:** Admin — hammasi; Worker — faqat o'zi ochgan arendalarning to'lovlari.
+Begona `?rentalId=` so'ralsa `403` qaytadi.
 
 **Query params:**
 
@@ -997,6 +1007,7 @@ To'lovni bekor qilish.
 
 Qarzdorlar ro'yxati.
 **Auth:** Admin | Worker
+**Doira:** Admin — hammasi; Worker — faqat o'zi ochgan arendalarga tegishli qarzlar.
 
 **Query params:**
 

@@ -1,6 +1,7 @@
 import { IClient } from "../models/Client";
 import { Client } from "../models/Client";
 import { AppError } from "../utils/AppError";
+import { escapeRegex } from "../utils/regex";
 
 export class ClientService {
   async getAllClients(filters: { search?: string; hasDebt?: boolean; isActive?: boolean; page?: number; limit?: number }) {
@@ -8,9 +9,10 @@ export class ClientService {
     if (filters.isActive !== undefined) query.isActive = filters.isActive;
     if (filters.hasDebt) query.totalDebt = { $gt: 0 };
     if (filters.search) {
+      const term = escapeRegex(filters.search);
       query.$or = [
-        { fullName: { $regex: filters.search, $options: "i" } },
-        { phone: { $regex: filters.search, $options: "i" } },
+        { fullName: { $regex: term, $options: "i" } },
+        { phone: { $regex: term, $options: "i" } },
       ];
     }
 
@@ -39,11 +41,23 @@ export class ClientService {
   }
 
   async createClient(data: any) {
-    const existing = await Client.findOne({ 
-      $or: [{ phone: data.phone }, { telegramId: data.telegramId }] 
-    });
+    // DIQQAT: `{ telegramId: undefined }` ni Mongoose BO'SH shartga ({}) aylantiradi,
+    // u esa `$or` ichida HAR QANDAY hujjatga mos keladi. Ilgari shu sabab
+    // Telegram ID siz ikkinchi mijozni yaratib bo'lmasdi — har safar 409
+    // "allaqachon mavjud" chiqardi. Shuning uchun shartlar shartli quriladi.
+    const conditions: Record<string, unknown>[] = [{ phone: data.phone }];
+    if (data.telegramId !== undefined && data.telegramId !== null) {
+      conditions.push({ telegramId: data.telegramId });
+    }
+
+    const existing = await Client.findOne({ $or: conditions });
     if (existing) {
-      throw new AppError("Bu telefon raqami yoki Telegram ID allaqachon mavjud", 409);
+      throw new AppError(
+        existing.phone === data.phone
+          ? "Bu telefon raqami allaqachon mavjud"
+          : "Bu Telegram ID allaqachon mavjud",
+        409,
+      );
     }
 
     const client = new Client(data);
@@ -58,6 +72,13 @@ export class ClientService {
       const existing = await Client.findOne({ phone: data.phone, _id: { $ne: id } });
       if (existing) {
         throw new AppError("Bu telefon raqami allaqachon band", 409);
+      }
+    }
+
+    if (data.telegramId !== undefined && data.telegramId !== null) {
+      const existing = await Client.findOne({ telegramId: data.telegramId, _id: { $ne: id } });
+      if (existing) {
+        throw new AppError("Bu Telegram ID allaqachon band", 409);
       }
     }
 

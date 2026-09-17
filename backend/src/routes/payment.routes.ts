@@ -19,7 +19,10 @@ router.get("/", async (req, res, next) => {
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
     };
-    const result = await paymentService.getAll(filters);
+    const result = await paymentService.getAll(filters, {
+      id: req.user._id.toString(),
+      role: req.user.role,
+    });
     res.json(result);
   } catch (error) {
     next(error);
@@ -28,7 +31,10 @@ router.get("/", async (req, res, next) => {
 
 router.post("/", validate(createPaymentSchema), async (req, res, next) => {
   try {
-    const payment = await paymentService.create(req.body, req.user._id.toString());
+    const payment = await paymentService.create(req.body, {
+      id: req.user._id.toString(),
+      role: req.user.role,
+    });
     res.status(201).json({ data: payment });
   } catch (error) {
     next(error);

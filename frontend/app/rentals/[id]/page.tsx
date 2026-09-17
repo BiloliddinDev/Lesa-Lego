@@ -65,6 +65,9 @@ export default function RentalDetailPage() {
 
   // Yopish state
   const [closeNote, setCloseNote] = useState("");
+  // Qarz qolganda ochiladigan qarz hujjatining to'lov muddati (ixtiyoriy).
+  // Berilsa, bot muddatdan 2 kun oldin va muddat o'tganda eslatma yuboradi.
+  const [debtDueDate, setDebtDueDate] = useState("");
   const [closeResult, setCloseResult] = useState<any>(null);
   const [closeLoading, setCloseLoading] = useState(false);
 
@@ -159,7 +162,14 @@ export default function RentalDetailPage() {
     }
     setCloseLoading(true);
     try {
-      const result = await rentalsApi.close(id, { note: closeNote || undefined });
+      const result = await rentalsApi.close(id, {
+        note: closeNote || undefined,
+        // Faqat qarz qolganda ma'noga ega; sana `YYYY-MM-DD` dan ISO ga o'tadi
+        debtDueDate:
+          debtDueDate && check && check.debt > 0
+            ? new Date(debtDueDate + "T00:00:00").toISOString()
+            : undefined,
+      });
       setCloseResult(result);
       queryClient.invalidateQueries({ queryKey: ["rental", id] });
       queryClient.invalidateQueries({ queryKey: ["rentals"] });
@@ -711,6 +721,20 @@ export default function RentalDetailPage() {
                           <span className="text-amber-700 dark:text-amber-300">
                             Qarzdorlik mavjud. Yopishdan oldin to'lov qabul qilish tavsiya etiladi.
                           </span>
+                        </div>
+                      )}
+                      {check && check.debt > 0 && (
+                        <div className="space-y-2">
+                          <Label>Qarzni to'lash muddati (ixtiyoriy)</Label>
+                          <Input
+                            type="date"
+                            value={debtDueDate}
+                            min={new Date().toISOString().slice(0, 10)}
+                            onChange={(e) => setDebtDueDate(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Muddatdan 2 kun oldin va muddat o'tganda bot eslatma yuboradi.
+                          </p>
                         </div>
                       )}
                       <div className="space-y-2">

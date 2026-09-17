@@ -36,5 +36,11 @@ export function verifyTelegramWebAppData(
     return false;
   }
 
-  return calculatedHash === hash;
+  // Oddiy `===` solishtirish uzunlik bo'yicha vaqt sarfini oshkor qiladi;
+  // `timingSafeEqual` esa doimiy vaqtda ishlaydi (uzunlik teng bo'lishi shart).
+  const a = Buffer.from(calculatedHash, "hex");
+  const b = Buffer.from(hash, "hex");
+  if (a.length !== b.length) return false;
+
+  return crypto.timingSafeEqual(a, b);
 }

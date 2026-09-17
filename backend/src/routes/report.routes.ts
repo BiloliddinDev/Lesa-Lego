@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { reportService } from "../services/report.service";
+import { reconcileAll } from "../services/maintenance.service";
 import { authMiddleware, requireAdmin } from "../middleware/auth";
 
 const router = Router();
@@ -28,8 +29,21 @@ router.get("/monthly", requireAdmin, async (req, res, next) => {
 
 router.get("/overdue", async (req, res, next) => {
   try {
-    const overdue = await reportService.getOverdue();
+    const overdue = await reportService.getOverdue({
+      id: req.user._id.toString(),
+      role: req.user.role,
+    });
     res.json({ data: overdue });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/** Ombor sanog'i va mijoz qarzlarini qo'lda qayta hisoblash (faqat admin). */
+router.post("/reconcile", requireAdmin, async (req, res, next) => {
+  try {
+    const result = await reconcileAll();
+    res.json({ data: result });
   } catch (error) {
     next(error);
   }

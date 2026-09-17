@@ -24,8 +24,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-        window.location.href = "/login";
+      // Login sahifasi "/" da joylashgan. Ilgari bu yerda "/login" turardi —
+      // bunday route umuman yo'q, ya'ni token muddati o'tganda foydalanuvchi
+      // login o'rniga 404 sahifasiga tushardi.
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        window.location.href = "/";
       }
     }
     return Promise.reject(error);
@@ -113,7 +116,7 @@ export const rentalsApi = {
     api.get<{ data: RentalCheck }>(`/rentals/${id}/check`).then((r) => r.data.data),
   returnItems: (id: string, data: { returns: { equipmentId: string; quantity: number; note?: string }[]; returnDate?: string }) =>
     api.post(`/rentals/${id}/return`, data).then((r) => r.data.data),
-  close: (id: string, data?: { endDate?: string; note?: string }) =>
+  close: (id: string, data?: { endDate?: string; note?: string; debtDueDate?: string }) =>
     api.post(`/rentals/${id}/close`, data || {}).then((r) => r.data.data),
   update: (id: string, data: { expectedEndDate?: string; note?: string; deliveryLocation?: { lat: number; lng: number; label?: string } }) =>
     api.patch<{ data: Rental }>(`/rentals/${id}`, data).then((r) => r.data.data),

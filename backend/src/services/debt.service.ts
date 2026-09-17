@@ -3,18 +3,35 @@ import { Rental } from "../models/Rental";
 import { Client } from "../models/Client";
 import { AuditLog } from "../models/AuditLog";
 import { paymentService } from "./payment.service";
+import { recalculateClientDebt } from "./client-debt.service";
+import { syncDebtStatus } from "./debt-status.service";
+import { Actor, assertRentalOwnership, isAdmin, ownRentalIds } from "./access.service";
 import { AppError } from "../utils/AppError";
 
+/**
+ * QARZ HUJJATLARI — muddat va eslatma qatlami.
+ *
+ * `Client.totalDebt` bu yerdan HISOBLANMAYDI: u arendaning haqiqiy kunlik
+ * hisobidan olinadi (`client-debt.service.ts` ga qarang). Ilgari `create`
+ * `$inc: { totalDebt }` qilardi, keyin har qanday to'lov `totalDebt` ni
+ * butunlay ustidan yozib, bu qo'shimchani yo'q qilardi — va ikki manba
+ * bir-biriga qarama-qarshi raqam berardi. Endi yagona manba — arenda hisobi.
+ */
 export class DebtService {
-  async getAll(filters: {
-    status?: string;
-    clientId?: string;
-    page?: number;
-    limit?: number;
-  }) {
+  /**
+   * Qarzlar ro'yxati. To'lovlar bilan bir xil doira: worker faqat o'zi ochgan
+   * arendalarga tegishli qarzlarni ko'radi.
+   */
+  async getAll(
+    filters: { status?: string; clientId?: string; page?: number; limit?: number },
+    actor: Actor,
+  ) {
     const query: Record<string, unknown> = {};
     if (filters.status) query.status = filters.status;
     if (filters.clientId) query.client = filters.clientId;
+    if (!isAdmin(actor.role)) {
+      query.rental = { $in: await ownRentalIds(actor.id) };
+    }
 
     const page = filters.page || 1;
     const limit = filters.limit || 20;
@@ -33,14 +50,31 @@ export class DebtService {
     return { data: debts, total, page, totalPages: Math.ceil(total / limit) };
   }
 
-  async create(data: { clientId: string; rentalId: string; amount: number; dueDate?: string; note?: string }) {
+  async create(
+    data: {
+      clientId: string;
+      rentalId: string;
+      amount: number;
+      dueDate?: string;
+      note?: string;
+    },
+    actor: Actor,
+  ) {
+    // Worker faqat o'z arendasiga qarz hujjati ocha oladi
+    await assertRentalOwnership(data.rentalId, actor);
+
     const client = await Client.findById(data.clientId);
     if (!client) throw new AppError("Mijoz topilmadi", 404);
 
     const rental = await Rental.findById(data.rentalId);
     if (!rental) throw new AppError("Arenda topilmadi", 404);
 
-    const debt = await Debt.create({
+    // Arenda boshqa mijozga tegishli bo'lsa qarz hujjati ma'nosiz bo'ladi
+    if (rental.client.toString() !== data.clientId) {
+      throw new AppError("Bu arenda ko'rsatilgan mijozga tegishli emas", 400);
+    }
+
+    return Debt.create({
       client: data.clientId,
       rental: data.rentalId,
       amount: data.amount,
@@ -48,41 +82,49 @@ export class DebtService {
       note: data.note,
       status: "pending",
     });
-
-    // Client.totalDebt oshirish
-    await Client.findByIdAndUpdate(data.clientId, { $inc: { totalDebt: data.amount } });
-
-    return debt;
   }
 
-  async pay(debtId: string, data: { amount: number; method: string; note?: string }, userId: string) {
+  async pay(debtId: string, data: { amount: number; method: string; note?: string }, actor: Actor) {
+    const userId = actor.id;
     const debt = await Debt.findById(debtId);
     if (!debt) throw new AppError("Qarz topilmadi", 404);
-    if (debt.status === "paid") throw new AppError("Qarz allaqachon to'langan", 400);
-    if (data.amount > debt.amount) throw new AppError("To'lov miqdori qarzdan ko'p bo'lishi mumkin emas", 400);
 
-    // Payment yaratish (payment service orqali)
+    // Worker begona arendaning qarzini to'lay olmaydi (to'lov o'sha arendaga yoziladi)
+    await assertRentalOwnership(debt.rental, actor);
+
+    if (debt.status === "paid") throw new AppError("Qarz allaqachon to'langan", 400);
+    if (data.amount > debt.amount) {
+      throw new AppError("To'lov miqdori qarzdan ko'p bo'lishi mumkin emas", 400);
+    }
+
     const payment = await paymentService.create(
       { rentalId: debt.rental.toString(), amount: data.amount, method: data.method, note: data.note },
-      userId,
+      actor,
     );
 
-    // Debt status yangilash
-    const newAmount = debt.amount - data.amount;
-    if (newAmount <= 0) {
+    // Qolgan summani SAQLAYMIZ. Ilgari `newAmount` faqat hisoblanib qo'yilardi,
+    // `debt.amount` ga yozilmasdi — qismi to'lov saqlanmay, qarzni yana
+    // to'liq summada cheksiz marta "to'lash" mumkin bo'lardi.
+    const remaining = debt.amount - data.amount;
+    debt.amount = Math.max(remaining, 0);
+    if (remaining <= 0) {
       debt.status = "paid";
       debt.paidDate = new Date();
     }
     await debt.save();
 
-    // Audit Log
+    await recalculateClientDebt(debt.client.toString());
+    // Arenda hisobiga qarab hujjat holatini yakuniy moslash (qarz hujjati
+    // summasi arenda qarzidan katta bo'lgan hollarda ham to'g'ri yopiladi)
+    await syncDebtStatus(debt.rental);
+
     await AuditLog.create({
       userId,
       action: "debt.pay",
       resourceType: "debt",
       resourceId: debt._id,
-      resourceName: `Qarz to'lovi ${data.amount} so'm`,
-      after: { amount: data.amount, method: data.method, remainingAmount: newAmount },
+      resourceName: "Qarz to'lovi " + data.amount + " so'm",
+      after: { amount: data.amount, method: data.method, remainingAmount: debt.amount },
     });
 
     return { debt, payment };

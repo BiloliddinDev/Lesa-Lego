@@ -1,6 +1,17 @@
 # Backend Implementatsiya Yo'l Xaritasi
 
-## Hozirgi holat: 100% tayyor
+## Hozirgi holat
+
+> ⚠️ Bu hujjat uzoq vaqt "100% tayyor" deb turdi, amalda esa quyidagilar
+> bajarilmagan edi: worker ruxsatlari yarim yo'lda, qarz avtomatikasi yo'q,
+> mijozga xabar yo'q. 17.09.2026 dagi auditda topilib tuzatildi —
+> batafsil: `docs/status-report.md`.
+>
+> **Baholashda ehtiyot bo'ling:** `npm run verify` va `tsc --noEmit` faqat
+> sof funksiyalar va tiplarni tekshiradi. Baza bilan ishlaydigan mantiq
+> (ruxsatlar, qarz sanog'i, cron) qo'lda sinalishi shart.
+
+### Modullar holati
 
 ### TAYYOR (ishlayotgan)
 - Auth (Telegram login + JWT)

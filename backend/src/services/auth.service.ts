@@ -2,6 +2,7 @@ import { verifyTelegramWebAppData } from "../utils/telegramAuth";
 import { User } from "../models/User";
 import { signToken } from "../utils/jwt";
 import { AppError } from "../utils/AppError";
+import { env } from "../config/env";
 
 interface TelegramUserData {
   id: number;
@@ -11,9 +12,8 @@ interface TelegramUserData {
 }
 
 export async function loginWithTelegram(initData: string) {
-  const botToken = process.env.BOT_TOKEN!;
-
-  const isValid = verifyTelegramWebAppData(initData, botToken);
+  // `env` orqali: envalid uni server ko'tarilishida tekshirgan bo'ladi
+  const isValid = verifyTelegramWebAppData(initData, env.BOT_TOKEN);
   if (!isValid) {
     throw new AppError("initData noto'g'ri", 401, "AUTH_INVALID_INIT_DATA");
   }

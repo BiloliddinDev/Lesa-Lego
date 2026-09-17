@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import { tzDateKey } from "../utils/date";
 
 export interface IReturnEvent {
   date: Date;
@@ -109,13 +110,30 @@ const rentalSchema = new Schema<IRental>(
   { timestamps: true }
 );
 
+/**
+ * Arenda raqamini generatsiya qiladi: ARN-2026-0001
+ *
+ * Ilgari `countDocuments` ishlatilardi — hujjat o'chirilsa yoki parallel
+ * yaratilsa bir xil raqam chiqib, `unique` indeks 500 xato berardi.
+ * Endi mavjud eng katta raqamdan +1 olinadi; to'qnashuvda esa servis
+ * qatlami (`saveWithUniqueNumber`) qayta urinib ko'radi.
+ */
 rentalSchema.pre("save", async function (next) {
   if (!this.rentalNumber) {
-    const year = new Date().getFullYear();
-    const count = await mongoose.model("Rental").countDocuments({
-      rentalNumber: new RegExp(`^ARN-${year}-`),
-    });
-    this.rentalNumber = `ARN-${year}-${String(count + 1).padStart(4, "0")}`;
+    // Yil ham biznes mintaqasi bo'yicha: 31-dekabr kechasi server UTC da
+    // bo'lsa raqam keyingi yilga o'tib ketardi (ARN-2027-0001 dekabrda)
+    const year = tzDateKey(new Date()).slice(0, 4);
+    const prefix = `ARN-${year}-`;
+    const last = await mongoose
+      .model("Rental")
+      .findOne({ rentalNumber: new RegExp(`^${prefix}`) })
+      .sort({ rentalNumber: -1 })
+      .select("rentalNumber")
+      .lean<{ rentalNumber?: string } | null>();
+
+    const lastSeq = last?.rentalNumber ? parseInt(last.rentalNumber.slice(prefix.length), 10) : 0;
+    const nextSeq = (Number.isNaN(lastSeq) ? 0 : lastSeq) + 1;
+    this.rentalNumber = `${prefix}${String(nextSeq).padStart(4, "0")}`;
   }
   next();
 });

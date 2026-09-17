@@ -6,6 +6,7 @@ export const createRentalSchema = z.object({
     z.object({
       equipmentId: z.string().length(24),
       quantity: z.number().int().min(1),
+      // Yuborilmasa jihozning joriy narxi olinadi (rental.service.ts)
       dailyRate: z.number().int().min(0).optional(),
     })
   ).min(1, "Kamida 1 ta jihoz"),
@@ -36,6 +37,21 @@ export const returnItemsSchema = z.object({
 export const closeRentalSchema = z.object({
   endDate: z.string().datetime().optional(),
   note: z.string().max(500).optional(),
+  // Yopishda qarz qolsa avtomatik `Debt` hujjati ochiladi; bu — o'sha
+  // qarzning to'lov muddati (ixtiyoriy, eslatmalar shunga qarab yuboriladi)
+  debtDueDate: z.string().datetime().optional(),
+});
+
+export const updateRentalSchema = z.object({
+  expectedEndDate: z.string().datetime().optional(),
+  note: z.string().max(500).optional(),
+  deliveryLocation: z
+    .object({
+      lat: z.number().min(-90).max(90),
+      lng: z.number().min(-180).max(180),
+      label: z.string().max(200).optional(),
+    })
+    .optional(),
 });
 
 export const rentalFilterSchema = z.object({

@@ -52,8 +52,8 @@ const clientSchema = new Schema<IClient>(
   { timestamps: true }
 );
 
-clientSchema.index({ phone: 1 });
-clientSchema.index({ telegramId: 1 }, { sparse: true });
+// `phone` va `telegramId` uchun indeks maydon ta'rifidagi `unique: true` da
+// allaqachon yaratilgan — bu yerda takrorlansa Mongoose ogohlantirish beradi.
 clientSchema.index({ fullName: "text" });
 
 export const Client = mongoose.model<IClient>("Client", clientSchema);
