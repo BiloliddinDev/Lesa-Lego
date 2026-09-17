@@ -51,11 +51,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
 
   return (
-    <div className="flex flex-col min-h-dvh pb-16">
+    /*
+      Ustun: header + kontent + pastki navigatsiya.
+      Balandlik `--app-height` orqali — Telegram bergan haqiqiy balandlik.
+      Kontent `max-w-lg` bilan markazlashtirilgan: Telegram Desktop oynasi
+      keng bo'lganda kontent cho'zilib ketmaydi va pastki navigatsiya bilan
+      bir tekisda turadi (ilgari navigatsiya markazda, kontent esa butun
+      kenglikda edi — shu sabab layout "siljigan" ko'rinardi).
+    */
+    <div
+      className="flex flex-col"
+      style={{ minHeight: "var(--app-height)" }}
+    >
       {/* Header */}
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3 pt-[calc(0.75rem+var(--safe-top))]">
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowMenu(!showMenu)} className="md:hidden">
+          {/*
+            Menyu tugmasi HAR DOIM ko'rinadi. Ilgari `md:hidden` edi: Telegram
+            Desktop oynasi keng (>=768px) bo'lganda tugma yo'qolardi, pastki
+            navigatsiyada esa faqat 6 ta umumiy bo'lim bor — ya'ni admin
+            "Xodimlar", "Sozlamalar", "Kategoriyalar" va "Hisobot" ga
+            umuman o'ta olmasdi.
+          */}
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            aria-label="Menyu"
+            className="-ml-1 p-1"
+          >
             <Menu className="h-5 w-5" />
           </button>
           <h1 className="text-sm font-semibold">
@@ -77,7 +99,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile menu dropdown */}
       {showMenu && (
         <div className="fixed inset-0 z-20 bg-black/50" onClick={() => setShowMenu(false)}>
-          <div className="fixed left-0 top-14 bottom-16 w-60 bg-background border-r p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed left-0 top-14 bottom-16 w-60 max-w-[80vw] overflow-y-auto bg-background border-r p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
             {allNavItems.map((item) => (
               <button
                 key={item.href}
@@ -100,11 +122,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main content */}
-      <main className="flex-1">{children}</main>
+      {/* Main content — pastki navigatsiya balandligi + xavfsiz zona qadar joy */}
+      <main className="flex-1 w-full max-w-lg mx-auto pb-[calc(4rem+var(--safe-bottom))]">
+        {children}
+      </main>
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background">
+      <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background pb-[var(--safe-bottom)]">
         <div className="mx-auto flex max-w-lg items-center justify-around px-2">
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);

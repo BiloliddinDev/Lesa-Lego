@@ -43,8 +43,9 @@ export default function LoginPage() {
     const tg = window.Telegram?.WebApp;
     if (!tg || !tg.initData) return;
 
-    tg.ready();
-    tg.expand();
+    // `ready()` / `expand()` bu yerda EMAS — ular `TelegramProvider` da,
+    // ilovaning eng tepasida chaqiriladi (token saqlangan foydalanuvchi bu
+    // sahifani umuman ochmasligi mumkin).
     setIsTelegramAuto(true);
 
     telegramLogin(tg.initData)

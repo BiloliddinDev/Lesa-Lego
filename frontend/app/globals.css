@@ -110,8 +110,37 @@
   * {
     @apply border-border;
   }
+
+  /*
+    ILOVA BALANDLIGI.
+    `--tg-viewport-stable-height` ni `TelegramProvider` Telegram'dan olib
+    yozadi; Telegramdan tashqarida (oddiy brauzer) `100dvh` ishlaydi.
+    Telegram Desktop'da webview balandligi `100dvh` bilan har doim ham mos
+    kelmaydi — aynan shu farq pastda oq bo'shliq bo'lib ko'rinardi.
+  */
+  :root {
+    --app-height: var(--tg-viewport-stable-height, 100dvh);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  html,
+  body {
+    height: 100%;
+    /*
+      Gorizontal scroll'ning oldini olamiz. Loyihada `100vw` ishlatilmagan
+      (u vertikal scrollbar kengligini hisobga olmagani uchun Desktop'da
+      o'ngda bo'sh chiziq qoldiradi) — bu qoida esa kelajakda tasodifan
+      chiqib qoladigan kengliklardan himoya.
+    */
+    overflow-x: hidden;
+    /* Telegram ichida "rezina" scroll ilovani yopib yubormasligi uchun */
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: var(--app-height);
   }
 }
