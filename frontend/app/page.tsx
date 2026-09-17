@@ -79,7 +79,13 @@ export default function LoginPage() {
   const handleSetup = async () => {
     setIsSettingUp(true);
     try {
-      await setup({ name: name || undefined });
+      // Telegram ID NI UZATISH SHART: aks holda admin `telegramId: 1` bilan
+      // yaratiladi va keyin Telegram WebApp orqali hech qachon kira olmaydi
+      // (initData dagi haqiqiy ID bazadagisi bilan mos kelmaydi).
+      await setup({
+        name: name || undefined,
+        telegramId: telegramId ? parseInt(telegramId) : undefined,
+      });
       toast.success("Admin user yaratildi");
       router.push("/dashboard");
     } catch (err: any) {
@@ -162,7 +168,24 @@ export default function LoginPage() {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
-            <Button onClick={handleSetup} className="w-full" disabled={isSettingUp}>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Telegram ID</label>
+              <Input
+                type="number"
+                placeholder="123456789"
+                value={telegramId}
+                onChange={(e) => setTelegramId(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Botga <b>/id</b> deb yozsangiz ID ingizni aytadi. Telegram orqali
+                kirish aynan shu ID bo'yicha ishlaydi — keyin o'zgartirib bo'lmaydi.
+              </p>
+            </div>
+            <Button
+              onClick={handleSetup}
+              className="w-full"
+              disabled={isSettingUp || !telegramId}
+            >
               <UserPlus className="h-4 w-4" />
               {isSettingUp ? "Yaratilmoqda..." : "Admin yaratish"}
             </Button>

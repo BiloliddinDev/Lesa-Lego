@@ -1,7 +1,11 @@
 import type { AuthResponse, AuditLogEntry, User, Category, Equipment, Client, Rental, RentalCheck, Payment, Debt, CompanySettings, DashboardSummary, OverdueRental, MonthlyReport, EquipmentHistoryEntry } from "./types";
 import axios from "axios";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+// Default — NISBIY manzil: so'rov frontend bilan bir xil originga ketadi va
+// `next.config.ts` dagi rewrite uni backendga uzatadi. Shu sabab Telegram
+// ichida (telefonda) ham ishlaydi. Boshqa domendagi backend uchun
+// `NEXT_PUBLIC_API_URL` ni to'liq manzil qilib bering.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export const api = axios.create({
   baseURL: API_BASE,
