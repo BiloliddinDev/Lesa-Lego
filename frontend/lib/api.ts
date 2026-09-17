@@ -5,7 +5,7 @@ import axios from "axios";
 // `next.config.ts` dagi rewrite uni backendga uzatadi. Shu sabab Telegram
 // ichida (telefonda) ham ishlaydi. Boshqa domendagi backend uchun
 // `NEXT_PUBLIC_API_URL` ni to'liq manzil qilib bering.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -38,6 +38,65 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+/**
+ * Xatoni TUSHUNARLI holatga aylantiradi.
+ *
+ * Bu juda muhim: ilgari login sahifasi har qanday xatoni "DB bo'sh" yoki
+ * "siz tizimga qo'shilmagansiz" deb ko'rsatardi. Natijada backend umuman
+ * javob bermayotganda ham foydalanuvchi bazada admin yo'q deb o'ylardi.
+ */
+export type ApiFailure = {
+  kind: "network" | "not_found" | "forbidden" | "server" | "unknown";
+  message: string;
+  status?: number;
+  hint?: string;
+};
+
+export function describeApiError(err: unknown): ApiFailure {
+  const e = err as {
+    response?: { status?: number; data?: { error?: { message?: string } } };
+    message?: string;
+  };
+  const status = e?.response?.status;
+  const serverMessage = e?.response?.data?.error?.message;
+
+  if (!e?.response) {
+    return {
+      kind: "network",
+      message: "Backend javob bermadi",
+      hint: `So'rov manzili: ${API_BASE}. Backend ishlab turibdimi va manzil to'g'rimi?`,
+    };
+  }
+
+  if (status === 404) {
+    return {
+      kind: "not_found",
+      status,
+      message: serverMessage || "Endpoint topilmadi (404)",
+      hint: `So'rov ${API_BASE} ga ketdi, lekin u yerda API yo'q. Frontend backendga proxy qilinmagan bo'lishi mumkin (NEXT_PUBLIC_API_URL yoki BACKEND_URL).`,
+    };
+  }
+
+  if (status === 403 || status === 401) {
+    return {
+      kind: "forbidden",
+      status,
+      message: serverMessage || "Kirish taqiqlangan",
+    };
+  }
+
+  if (status !== undefined && status >= 500) {
+    return {
+      kind: "server",
+      status,
+      message: serverMessage || "Server xatosi",
+      hint: "Backend loglariga qarang (masalan: fly logs).",
+    };
+  }
+
+  return { kind: "unknown", status, message: serverMessage || e?.message || "Xatolik" };
+}
 
 // Users endpoints (Admin only)
 export const usersApi = {

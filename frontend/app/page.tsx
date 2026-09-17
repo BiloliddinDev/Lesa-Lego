@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { authApi } from "@/lib/api";
+import { API_BASE, authApi, describeApiError, type ApiFailure } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,15 @@ export default function LoginPage() {
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [hasUsers, setHasUsers] = useState<boolean | null>(null);
   const [isTelegramAuto, setIsTelegramAuto] = useState(false);
+  // Telegram bergan ID — xato ekranida ko'rsatiladi (bazadagisi bilan solishtirish uchun)
+  const tgUserId =
+    typeof window !== "undefined"
+      ? window.Telegram?.WebApp?.initDataUnsafe?.user?.id
+      : undefined;
   const [telegramFailed, setTelegramFailed] = useState(false);
+  // Backend bilan bog'liq xato — "DB bo'sh" degan noto'g'ri xulosa o'rniga
+  // haqiqiy sababni ko'rsatish uchun
+  const [apiError, setApiError] = useState<ApiFailure | null>(null);
 
   React.useEffect(() => {
     if (user && !isLoading) {
@@ -33,9 +41,20 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     if (isTelegramEnv) return;
-    authApi.devUsers()
-      .then((users) => setHasUsers(users.length > 0))
-      .catch(() => setHasUsers(false));
+    authApi
+      .devUsers()
+      .then((users) => {
+        setApiError(null);
+        setHasUsers(users.length > 0);
+      })
+      .catch((err) => {
+        // ILGARI bu yerda shunchaki `setHasUsers(false)` turardi va natijada
+        // backend javob bermayotgan bo'lsa ham ekranda "DB bo'sh — birinchi
+        // admin yarating" chiqardi. Bazada admin bor bo'lsa ham.
+        const failure = describeApiError(err);
+        setApiError(failure);
+        setHasUsers(null);
+      });
   }, [isTelegramEnv]);
 
   // Telegram WebApp ichida ochilgan bo'lsa, avtomatik kirish
@@ -56,7 +75,9 @@ export default function LoginPage() {
       .catch((err: any) => {
         setIsTelegramAuto(false);
         setTelegramFailed(true);
-        toast.error(err.response?.data?.error?.message || "Telegram orqali kirishda xatolik");
+        const failure = describeApiError(err);
+        setApiError(failure);
+        toast.error(failure.message);
       });
   }, [telegramLogin, router]);
 
@@ -115,14 +136,68 @@ export default function LoginPage() {
         </Card>
       )}
 
+      {/*
+        Telegram orqali kirish muvaffaqiyatsiz. MUHIM: sabab ikki xil bo'lishi
+        mumkin va ularni aralashtirib yubormaslik kerak —
+        403 = haqiqatan tizimga qo'shilmagansiz;
+        404/tarmoq = backendga umuman yetib borilmadi (bazada admin bo'lsa ham).
+      */}
       {!isTelegramAuto && telegramFailed && isTelegramEnv && (
         <Card className="w-full max-w-sm">
           <CardContent className="p-6 text-center space-y-2">
             <LogIn className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="text-sm font-medium">Kirish imkonsiz</p>
-            <p className="text-xs text-muted-foreground">
-              Siz tizimga qo&apos;shilmagansiz. Administrator bilan bog&apos;laning.
+            {apiError?.kind === "forbidden" ? (
+              <>
+                <p className="text-sm font-medium">Kirish imkonsiz</p>
+                <p className="text-xs text-muted-foreground">{apiError.message}</p>
+                <p className="text-xs text-muted-foreground">
+                  Sizning Telegram ID:{" "}
+                  <b>{tgUserId ?? "—"}</b> — administrator shu ID ni qo&apos;shishi kerak.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium">Server bilan bog&apos;lanib bo&apos;lmadi</p>
+                <p className="text-xs text-destructive">
+                  {apiError?.message}
+                  {apiError?.status ? ` (${apiError.status})` : ""}
+                </p>
+                {apiError?.hint && (
+                  <p className="text-xs text-muted-foreground">{apiError.hint}</p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Brauzerda backendga yetib borilmagan holat */}
+      {!isTelegramEnv && apiError && (
+        <Card className="w-full max-w-sm border-destructive/40">
+          <CardHeader>
+            <CardTitle className="text-lg">Server bilan bog&apos;lanib bo&apos;lmadi</CardTitle>
+            <CardDescription>
+              Shuning uchun bazada foydalanuvchi bor-yo&apos;qligini aniqlab bo&apos;lmadi
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-destructive">
+              {apiError.message}
+              {apiError.status ? ` (${apiError.status})` : ""}
             </p>
+            {apiError.hint && (
+              <p className="text-xs text-muted-foreground">{apiError.hint}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              API manzili: <code>{API_BASE}</code>
+            </p>
+            {apiError.kind === "not_found" && (
+              <p className="text-xs text-muted-foreground">
+                Eslatma: <code>/auth/dev-users</code> faqat{" "}
+                <code>NODE_ENV=development</code> da mavjud. Production backendda
+                u 404 qaytaradi — bu normal, kirish Telegram orqali amalga oshiriladi.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -194,7 +269,7 @@ export default function LoginPage() {
         </Card>
       )}
 
-      {!isTelegramAuto && !telegramFailed && hasUsers === null && (
+      {!isTelegramAuto && !telegramFailed && hasUsers === null && !apiError && (
         <p className="text-sm text-muted-foreground">Ma&apos;lumotlar tekshirilmoqda...</p>
       )}
     </div>
