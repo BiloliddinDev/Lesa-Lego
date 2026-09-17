@@ -5,7 +5,7 @@ import rateLimit from "express-rate-limit";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
-import { connectDB } from "./config/db.js";
+import { connectDB, getDbStatus } from "./config/db.js";
 import { swaggerDocument } from "./config/swagger.js";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
@@ -66,8 +66,30 @@ const apiLimiter = rateLimit({
   },
 });
 
+/**
+ * SOG'LIQ VA DIAGNOSTIKA.
+ *
+ * Serverga qo'yilgandan keyin "bazaga ulandimmi?" degan savolga javob
+ * beradigan yagona joy. Brauzerda ochish kifoya:
+ *   https://<ilova>.fly.dev/health
+ *
+ * MUHIM: baza ulanmagan bo'lsa ham 200 qaytaradi. Aks holda Fly proxy
+ * mashinani "nosog'lom" deb belgilab, so'rovni umuman o'tkazmaydi va
+ * sababni ko'rishning iloji qolmaydi. Haqiqiy holat `db.connected` da.
+ */
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  const db = getDbStatus();
+  res.json({
+    status: db.connected ? "ok" : "degraded",
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+    env: env.NODE_ENV,
+    timezone: env.APP_TZ,
+    port: env.PORT,
+    bot: env.ENABLE_BOT,
+    cron: env.ENABLE_CRON,
+    db,
+  });
 });
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -88,11 +110,21 @@ app.use(errorHandler);
 
 const start = async () => {
   try {
-    await connectDB();
+    const dbConnected = await connectDB();
+
+    if (!dbConnected) {
+      // Server baribir ko'tariladi: /health sababni ko'rsatadi, deploy esa
+      // "mashina topilmadi" bo'lib qolmaydi.
+      console.error(
+        "[Start] Baza ulanmadi — API so'rovlari xato qaytaradi. " +
+          "Tekshirish: GET /health",
+      );
+    }
 
     // Eski xatolar qoldirgan nomuvofiqliklarni tuzatamiz (ombor sanog'i va
     // mijoz qarzlari). Xato bo'lsa ham server ko'tarilishi to'xtamaydi.
     try {
+      if (!dbConnected) throw new Error("baza ulanmagan");
       const result = await reconcileAll();
       console.log(
         `[Reconcile] Ombor: ${result.stock.fixed}/${result.stock.checked} jihoz tuzatildi, ` +
