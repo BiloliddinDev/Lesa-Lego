@@ -206,9 +206,28 @@ export class RentalService {
         });
         // Mijoz ma'lumotini yuklab beramiz — aks holda Telegram xabarida
         // "Mijoz: undefined" chiqadi (rental.client bu yerda faqat ObjectId).
-        notifyService
-          .rentalCreated(await rental.populate("client", "fullName phone"))
-          .catch(console.error);
+        const populated = await rental.populate("client", "fullName phone");
+        notifyService.rentalCreated(populated).catch(console.error);
+
+        // Nakladnoy avtomatik ADMINLARGA yuboriladi (plan, 5-jarayon).
+        // Mijozga emas: unga hujjat faqat xodim aniq so'raganda ketadi.
+        // PDF yasashdagi xato arendani buzmasligi kerak — shuning uchun
+        // bu yer `runPostCommit` ichida va xatosi alohida ushlanadi.
+        try {
+          // KECHIKTIRILGAN IMPORT: `pdf.service` o'z navbatida `rental.service`
+          // ni import qiladi. Yuqorida statik import qilsak — aylanma
+          // bog'liqlik: modul yuklanayotgan paytda `RentalService` hali
+          // e'lon qilinmagan bo'ladi va server ishga tushishda yiqiladi.
+          const { pdfService } = await import("./pdf.service.js");
+          const pdf = await pdfService.generateNakladnoy(rental._id.toString());
+          await notifyService.sendRentalDocument({
+            buffer: pdf,
+            fileName: `${rental.rentalNumber}-nakladnoy.pdf`,
+            caption: `📄 Nakladnoy: <b>${rental.rentalNumber}</b>`,
+          });
+        } catch (err) {
+          console.error("[PostCommit] Nakladnoy yuborilmadi:", err);
+        }
       });
 
       return rental;
@@ -440,6 +459,55 @@ export class RentalService {
    * arendalarni ko'radi — aks holda jihoz kartasi orqali begona arendalar
    * va mijozlar ro'yxati ochilib qolardi.
    */
+  /**
+   * Arenda hujjatini Telegram orqali yuborish. Adminlar har doim oladi;
+   * `toClient` bo'lsa va mijozda `telegramId` bo'lsa — mijozga ham.
+   */
+  async sendRentalDocument(rentalId: string, type: string, toClient: boolean) {
+    const rental = await Rental.findById(rentalId).populate("client", "fullName telegramId");
+    if (!rental) throw new AppError("Arenda topilmadi", 404);
+
+    const { pdfService } = await import("./pdf.service.js");
+
+    const labels: Record<string, string> = {
+      nakladnoy: "Nakladnoy",
+      check: "Hisob-kitob",
+      contract: "Shartnoma",
+    };
+    const kind = labels[type] ? type : "nakladnoy";
+
+    const buffer =
+      kind === "check"
+        ? await pdfService.generateCheck(rentalId)
+        : kind === "contract"
+          ? await pdfService.generateContract(rentalId)
+          : await pdfService.generateNakladnoy(rentalId);
+
+    const client = rental.client as any;
+
+    if (toClient && !client?.telegramId) {
+      throw new AppError(
+        "Mijozda Telegram ID saqlanmagan — avval mijoz ma'lumotiga qo'shing",
+        400,
+        "CLIENT_TELEGRAM_MISSING",
+      );
+    }
+
+    await notifyService.sendRentalDocument({
+      buffer,
+      fileName: `${rental.rentalNumber}-${kind}.pdf`,
+      caption: `📄 ${labels[kind]}: <b>${rental.rentalNumber}</b>`,
+      client,
+      toClient,
+    });
+
+    return {
+      sent: true,
+      type: kind,
+      toClient: toClient && !!client?.telegramId,
+    };
+  }
+
   async getEquipmentHistory(equipmentId: string, actor: Actor) {
     const query: Record<string, unknown> = {
       "items.equipment": new mongoose.Types.ObjectId(equipmentId),

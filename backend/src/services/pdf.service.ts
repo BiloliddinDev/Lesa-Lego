@@ -428,6 +428,22 @@ export class PdfService {
     doc.text(`6. Mazkur shartnoma ikki nusxada tuzildi va har ikki tomon tomonidan imzolanadi.`);
     doc.moveDown(1.5);
 
+    // Rekvizitlar — `CompanySettings` dagi bank ma'lumotlari. Ilgari bu
+    // maydonlar sozlamalarda to'ldirilardi-yu, hech qaysi hujjatga tushmasdi.
+    const requisites = [
+      settings.inn ? `INN: ${settings.inn}` : "",
+      settings.bankName ? `Bank: ${settings.bankName}` : "",
+      settings.bankAccount ? `Hisob raqam: ${settings.bankAccount}` : "",
+    ].filter(Boolean);
+
+    if (requisites.length > 0) {
+      font(doc, true).fontSize(10).text("Ijara beruvchi rekvizitlari:");
+      font(doc).fontSize(9).fillColor("#333333");
+      requisites.forEach((line) => doc.text(line, { indent: 10 }));
+      doc.fillColor("#000000");
+      doc.moveDown(1);
+    }
+
     const y = Math.max(doc.y, 660);
     doc.text("Ijara beruvchi: ______________________  (______________________)", 50, y);
     doc.text("Ijara oluvchi:  ______________________  (______________________)", 50, y + 30);

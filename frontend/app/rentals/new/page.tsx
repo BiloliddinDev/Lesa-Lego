@@ -58,9 +58,13 @@ export default function NewRentalPage() {
     },
   });
 
+  // Mijozni server tomonda qidiramiz: ilgari faqat birinchi 100 ta
+  // yuklanardi va ro'yxatdan tashqaridagi mijozga arenda ocholmasdik.
+  const [clientSearch, setClientSearch] = useState("");
+
   const { data: clients } = useQuery({
-    queryKey: ["clients"],
-    queryFn: () => clientsApi.getAll({ limit: 100 }),
+    queryKey: ["clients", { search: clientSearch }],
+    queryFn: () => clientsApi.getAll({ search: clientSearch || undefined, limit: 50 }),
   });
 
   const { data: equipmentList } = useQuery({
@@ -135,12 +139,20 @@ export default function NewRentalPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Mijoz</Label>
+            <Input
+              placeholder="Ism yoki telefon bo'yicha qidirish..."
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+            />
             <Select value={clientId} onValueChange={(v) => setValue("clientId", v, { shouldValidate: true })}>
               <SelectTrigger><SelectValue placeholder="Mijozni tanlang" /></SelectTrigger>
               <SelectContent>
                 {clients?.data?.map((c) => (
                   <SelectItem key={c._id} value={c._id}>{c.fullName} — {c.phone}</SelectItem>
                 ))}
+                {(!clients?.data || clients.data.length === 0) && (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">Mijoz topilmadi</div>
+                )}
               </SelectContent>
             </Select>
             {errors.clientId && <p className="text-xs text-destructive">{errors.clientId.message}</p>}

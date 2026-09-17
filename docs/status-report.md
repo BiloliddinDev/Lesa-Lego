@@ -86,10 +86,12 @@ Stack: Next.js 16, React 19, Tailwind v4, shadcn/ui, TanStack Query, RHF + Zod, 
 ### 5.1 Frontend
 | # | Nima | Muhimlik |
 |---|------|----------|
-| 1 | Arenda yopishda **qarz muddati** (`debtDueDate`) maydoni yo'q — backend qabul qiladi, UI yubormaydi (muddatsiz qarz ochiladi) | 🟠 O'rta |
-| 2 | Jihoz miqdorini sozlash (`adjustQuantity`) — API bor, UI yo'q | 🟡 Past |
-| 3 | Audit log ko'rish paneli (`GET /users/:id/audit`) | 🟡 Past |
-| 4 | Rate-limit (429) xatosi uchun alohida xabar | 🟢 Past |
+| 1 | **Logotip / pechat / imzo rasmi** — `CompanySettings` da maydon bor, PDF'ga chizilmaydi, yuklash oynasi ham yo'q | 🟠 O'rta |
+| 2 | Rate-limit (429) xatosi uchun alohida xabar | 🟢 Past |
+
+> Yopilganlar (17.09.2026): qarz muddati maydoni, ombor miqdorini sozlash
+> oynasi, xodim audit tarixi, hujjatni Telegramga yuborish tugmasi, mijoz
+> qidiruvi (arenda ochish oynalarida), mijoz Telegram ID/manzil maydonlari.
 
 ### 5.2 Backend / umumiy
 | # | Nima | Muhimlik |
@@ -123,6 +125,14 @@ haqiqiy baza bilan ishlatib ko'rilmagan.
 6. To'lov kiritish → qarz kamayadi, to'liq to'langanda `Debt` "paid" ga o'tadi
 7. Admin to'lovni bekor qiladi → qarz qaytadi, `Debt` "pending" ga qaytadi
 8. Serverni qayta ishga tushirish → `[Reconcile]` logida "0 jihoz tuzatildi" bo'lishi kerak
+
+**Telegram va PDF (alohida sinaladi — kod darajasida tayyor, ishlatib ko'rilmagan):**
+
+9. Arenda ochish → adminlar chatiga nakladnoy PDF avtomatik kelishi kerak
+10. Arenda sahifasi → PDF → "Adminlarga" / "Mijozga ham" tugmalari
+11. Mijozda Telegram ID yo'q bo'lsa "Mijozga ham" → 400 va tushunarli xabar
+12. Shartnoma PDF'da bank rekvizitlari (INN, bank, hisob raqam) ko'rinishi
+13. Nakladnoy PDF — 2 sahifa: "Beruvchi nusxasi" va "Oluvchi nusxasi"
 
 ---
 

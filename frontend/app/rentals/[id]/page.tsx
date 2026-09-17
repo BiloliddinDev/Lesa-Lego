@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, Download, DollarSign, Undo2, XCircle, CheckCircle2, AlertTriangle, FileText, MapPin, CalendarDays } from "lucide-react";
+import { ChevronLeft, Download, Send, DollarSign, Undo2, XCircle, CheckCircle2, AlertTriangle, FileText, MapPin, CalendarDays } from "lucide-react";
 import dynamic from "next/dynamic";
 
 // Leaflet faqat browserda ishlaydi — SSR o'chirilgan holda yuklaymiz
@@ -40,6 +40,12 @@ const statusLabels: Record<string, string> = {
   active: "Faol",
   overdue: "Muddati o'tgan",
   completed: "Yopilgan",
+};
+
+const pdfLabels: Record<string, string> = {
+  nakladnoy: "Nakladnoy",
+  check: "Check",
+  contract: "Shartnoma",
 };
 
 export default function RentalDetailPage() {
@@ -68,6 +74,8 @@ export default function RentalDetailPage() {
   // Qarz qolganda ochiladigan qarz hujjatining to'lov muddati (ixtiyoriy).
   // Berilsa, bot muddatdan 2 kun oldin va muddat o'tganda eslatma yuboradi.
   const [debtDueDate, setDebtDueDate] = useState("");
+  // Hujjatni Telegram orqali yuborish (adminlarga; mijozga faqat so'ralganda)
+  const [sendingPdf, setSendingPdf] = useState<string | null>(null);
   const [closeResult, setCloseResult] = useState<any>(null);
   const [closeLoading, setCloseLoading] = useState(false);
 
@@ -153,6 +161,22 @@ export default function RentalDetailPage() {
     onError: (err: any) =>
       toast.error(err.response?.data?.error?.message || "Xatolik"),
   });
+
+  // Hujjatni Telegram orqali yuborish. Adminlar har doim oladi;
+  // `toClient` bo'lsa mijozga ham (mijozda telegramId bo'lishi shart).
+  const sendPdfToTelegram = async (type: string, toClient: boolean) => {
+    setSendingPdf(type + (toClient ? ":client" : ""));
+    try {
+      const res = await rentalsApi.sendPdf(id, { type, toClient });
+      toast.success(
+        res.toClient ? "Hujjat adminlarga va mijozga yuborildi" : "Hujjat adminlarga yuborildi",
+      );
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || "Yuborib bo'lmadi");
+    } finally {
+      setSendingPdf(null);
+    }
+  };
 
   // Yopish handler
   const handleClose = async () => {
@@ -797,6 +821,36 @@ export default function RentalDetailPage() {
                     <Download className="h-4 w-4 shrink-0" />
                   </Button>
                 ))}
+
+                <Separator className="my-1" />
+                <p className="text-[10px] text-muted-foreground">
+                  Telegram orqali yuborish ({pdfLabels[pdfType] || "Nakladnoy"}):
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    disabled={!!sendingPdf}
+                    onClick={() => sendPdfToTelegram(pdfType, false)}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {sendingPdf === pdfType ? "Yuborilmoqda..." : "Adminlarga"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    disabled={!!sendingPdf}
+                    onClick={() => sendPdfToTelegram(pdfType, true)}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {sendingPdf === pdfType + ":client" ? "Yuborilmoqda..." : "Mijozga ham"}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Mijozga yuborish uchun uning Telegram ID si saqlangan bo'lishi kerak.
+                </p>
               </div>
             </DialogContent>
           </Dialog>

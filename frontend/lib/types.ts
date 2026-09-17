@@ -13,6 +13,18 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface AuditLogEntry {
+  _id: string;
+  userId: string;
+  action: string;
+  resourceType?: string;
+  resourceId?: string;
+  resourceName?: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface Category {
   _id: string;
   name: string;

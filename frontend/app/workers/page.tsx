@@ -12,8 +12,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { UserPlus, Shield, ShieldOff } from "lucide-react";
+import { UserPlus, Shield, ShieldOff, History } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/utils";
+
+/**
+ * Audit yozuvlarining o'qiladigan nomlari. Ro'yxatda yo'q amal uchun
+ * xom kalit ko'rsatiladi — bo'sh qatordan ko'ra tushunarli.
+ */
+const actionLabels: Record<string, string> = {
+  "rental.create": "Arenda ochdi",
+  "rental.return_items": "Jihoz qaytarib oldi",
+  "rental.close": "Arendani yopdi",
+  "rental.overdue": "Arenda muddati o'tdi",
+  "payment.create": "To'lov kiritdi",
+  "payment.delete": "To'lovni bekor qildi",
+  "debt.pay": "Qarz to'lovi",
+  "equipment.adjust_quantity": "Ombor miqdorini o'zgartirdi",
+  "settings.create": "Sozlamalarni yaratdi",
+  "settings.update": "Sozlamalarni o'zgartirdi",
+};
 
 export default function WorkersPage() {
   const { isAdmin } = useAuth();
@@ -21,6 +39,8 @@ export default function WorkersPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [telegramId, setTelegramId] = useState("");
+  // Audit oynasi: qaysi xodimning tarixi ochilgan
+  const [auditWorker, setAuditWorker] = useState<{ id: string; name: string } | null>(null);
 
   const { data: workers, isLoading } = useQuery({
     queryKey: ["users", { role: "WORKER" }],
@@ -43,6 +63,12 @@ export default function WorkersPage() {
     },
     onError: (err: any) =>
       toast.error(err.response?.data?.error?.message || "Xatolik yuz berdi"),
+  });
+
+  const { data: audit, isLoading: auditLoading } = useQuery({
+    queryKey: ["audit", auditWorker?.id],
+    queryFn: () => usersApi.getAudit(auditWorker!.id, { limit: 50 }),
+    enabled: !!auditWorker,
   });
 
   const toggleActiveMutation = useMutation({
@@ -152,6 +178,15 @@ export default function WorkersPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
+                        title="Harakatlar tarixi"
+                        onClick={() => setAuditWorker({ id: worker._id, name: worker.name })}
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
                         onClick={() => toggleActiveMutation.mutate(worker)}
                         title={
                           worker.isActive
@@ -178,6 +213,53 @@ export default function WorkersPage() {
           </div>
         )}
       </div>
+
+      {/* Xodim auditi (plan: "Xodimlar auditi") */}
+      <Dialog open={!!auditWorker} onOpenChange={(o) => !o && setAuditWorker(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{auditWorker?.name} — harakatlar tarixi</DialogTitle>
+          </DialogHeader>
+
+          {auditLoading ? (
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12 rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {audit?.data?.map((entry) => (
+                <div key={entry._id} className="rounded-lg border p-3 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium">
+                      {actionLabels[entry.action] || entry.action}
+                    </span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {formatDateTime(entry.createdAt)}
+                    </span>
+                  </div>
+                  {entry.resourceName && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {entry.resourceName}
+                    </p>
+                  )}
+                </div>
+              ))}
+              {(!audit?.data || audit.data.length === 0) && (
+                <p className="text-center text-sm text-muted-foreground py-6">
+                  Hali harakat qayd etilmagan
+                </p>
+              )}
+              {audit && audit.total > audit.data.length && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Oxirgi {audit.data.length} ta ko'rsatilmoqda ({audit.total} tadan)
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

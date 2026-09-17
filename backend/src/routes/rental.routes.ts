@@ -147,4 +147,27 @@ router.get("/:id/pdf", async (req, res, next) => {
   }
 });
 
+/**
+ * Hujjatni Telegram orqali yuborish (nakladnoy | check | contract).
+ * `toClient=true` bo'lsa mijozga ham ketadi — buning uchun mijozda
+ * `telegramId` saqlangan bo'lishi kerak.
+ */
+router.post("/:id/send-pdf", async (req, res, next) => {
+  try {
+    await rentalService.assertRentalAccess(
+      req.params.id,
+      req.user._id.toString(),
+      req.user.role,
+    );
+
+    const type = (req.body.type as string) || "nakladnoy";
+    const toClient = req.body.toClient === true;
+
+    const result = await rentalService.sendRentalDocument(req.params.id, type, toClient);
+    res.json({ data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

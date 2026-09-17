@@ -1,3 +1,4 @@
+import { InputFile } from "grammy";
 import { User } from "../models/User";
 import { env } from "../config/env";
 
@@ -21,11 +22,52 @@ async function sendMessage(chatId: number, text: string) {
   }
 }
 
+/**
+ * PDF hujjatni Telegram chatga yuboradi. `InputFile` shart — bo'sh Buffer
+ * berilsa Grammy uni fayl sifatida qabul qilmaydi.
+ */
+async function sendDocument(chatId: number, buffer: Buffer, fileName: string, caption?: string) {
+  if (!botInstance) return;
+  try {
+    await botInstance.api.sendDocument(chatId, new InputFile(buffer, fileName), {
+      caption,
+      parse_mode: "HTML",
+    });
+  } catch (err) {
+    console.error(`Failed to send document to ${chatId}:`, err);
+  }
+}
+
 function formatSum(amount: number): string {
   return amount.toLocaleString("uz-UZ") + " so'm";
 }
 
 export const notifyService = {
+  /**
+   * Arenda hujjatini (nakladnoy/chek/shartnoma) Telegram orqali yuborish.
+   *
+   * `toClient` ATAYLAB alohida bayroq: hujjat mijozga faqat xodim aniq
+   * so'raganda ketadi, arenda ochilganda avtomatik EMAS — mijozning chatiga
+   * so'rovsiz hujjat yuborish noto'g'ri bo'lardi.
+   */
+  async sendRentalDocument(options: {
+    buffer: Buffer;
+    fileName: string;
+    caption: string;
+    client?: { telegramId?: number } | null;
+    toClient?: boolean;
+  }) {
+    const { buffer, fileName, caption, client, toClient } = options;
+
+    for (const chatId of await getAdminChatIds()) {
+      await sendDocument(chatId, buffer, fileName, caption);
+    }
+
+    if (toClient && client?.telegramId) {
+      await sendDocument(client.telegramId, buffer, fileName, caption);
+    }
+  },
+
   async rentalCreated(rental: any) {
     const adminIds = await getAdminChatIds();
     const clientDoc = rental.client as any;

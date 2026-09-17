@@ -138,7 +138,6 @@ rentalSchema.pre("save", async function (next) {
   next();
 });
 
-rentalSchema.index({ rentalNumber: 1 });
 rentalSchema.index({ client: 1 });
 rentalSchema.index({ status: 1 });
 rentalSchema.index({ startDate: -1 });

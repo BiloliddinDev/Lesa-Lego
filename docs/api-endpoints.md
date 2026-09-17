@@ -905,6 +905,35 @@ Content-Disposition: attachment; filename="ARN-2025-0005-nakladnoy.pdf"
 
 ## 💰 Payments
 
+### POST /rentals/:id/send-pdf
+
+Hujjatni Telegram orqali yuborish.
+**Auth:** Admin | Worker (worker — faqat o'z arendasi)
+
+**Request:**
+
+```json
+{
+  "type": "nakladnoy",
+  "toClient": false
+}
+```
+
+- `type`: `nakladnoy` (default) | `check` | `contract`
+- `toClient`: `true` bo'lsa mijozga ham yuboriladi. Mijozda `telegramId`
+  saqlanmagan bo'lsa `400 CLIENT_TELEGRAM_MISSING` qaytadi.
+
+Adminlar har doim oladi. Arenda ochilganda nakladnoy adminlarga AVTOMATIK
+yuboriladi; mijozga esa faqat shu endpoint orqali, aniq so'ralganda.
+
+**Response 200:**
+
+```json
+{ "data": { "sent": true, "type": "nakladnoy", "toClient": false } }
+```
+
+---
+
 ### GET /payments
 
 To'lovlar ro'yxati.

@@ -60,6 +60,10 @@ export default function EquipmentPage() {
 
   // Edit dialog state
   const [showEdit, setShowEdit] = useState(false);
+  // Ombor miqdorini sozlash: sabab bilan (+ kirim / - chiqim), audit logga tushadi
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [adjustValue, setAdjustValue] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
   const [editingEq, setEditingEq] = useState<Equipment | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -76,6 +80,7 @@ export default function EquipmentPage() {
   const [showRental, setShowRental] = useState(false);
   const [rentalEq, setRentalEq] = useState<{ id: string; name: string; maxQty: number; rate: number } | null>(null);
   const [rentalClientId, setRentalClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
   const [rentalQty, setRentalQty] = useState("1");
   const [rentalStartDate, setRentalStartDate] = useState(new Date().toISOString().slice(0, 16));
   const [rentalDeposit, setRentalDeposit] = useState("");
@@ -92,9 +97,11 @@ export default function EquipmentPage() {
     queryFn: () => equipmentApi.getAll({ categoryId }),
   });
 
+  // Mijozlar server tomonda qidiriladi. Ilgari faqat birinchi 100 ta
+  // yuklanardi va mijoz ko'paygach ro'yxatdan topib bo'lmasdi.
   const { data: clients } = useQuery({
-    queryKey: ["clients"],
-    queryFn: () => clientsApi.getAll({ limit: 100 }),
+    queryKey: ["clients", { search: clientSearch }],
+    queryFn: () => clientsApi.getAll({ search: clientSearch || undefined, limit: 50 }),
   });
 
   // Equipment history query
@@ -169,6 +176,21 @@ export default function EquipmentPage() {
       queryClient.invalidateQueries({ queryKey: ["equipment"] });
       toast.success("Jihoz tahrirlandi");
       setShowEdit(false);
+      setEditingEq(null);
+    },
+    onError: (err: any) =>
+      toast.error(err.response?.data?.error?.message || "Xatolik"),
+  });
+
+  const adjustQuantityMutation = useMutation({
+    mutationFn: () =>
+      equipmentApi.adjustQuantity(editingEq!._id, parseInt(adjustValue), adjustReason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["equipment"] });
+      toast.success("Ombor miqdori o'zgartirildi");
+      setShowAdjust(false);
+      setAdjustValue("");
+      setAdjustReason("");
       setEditingEq(null);
     },
     onError: (err: any) =>
@@ -412,6 +434,12 @@ export default function EquipmentPage() {
 
               <div className="space-y-2">
                 <Label>Mijoz</Label>
+                <Input
+                  placeholder="Ism yoki telefon bo'yicha qidirish..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="mb-1"
+                />
                 <Select value={rentalClientId} onValueChange={setRentalClientId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Mijozni tanlang" />
@@ -422,6 +450,11 @@ export default function EquipmentPage() {
                         {c.fullName} — {c.phone}
                       </SelectItem>
                     ))}
+                    {(!clients?.data || clients.data.length === 0) && (
+                      <div className="px-2 py-3 text-xs text-muted-foreground">
+                        Mijoz topilmadi
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -585,7 +618,76 @@ export default function EquipmentPage() {
             >
               {updateEquipmentMutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
             </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              type="button"
+              onClick={() => { setShowEdit(false); setShowAdjust(true); }}
+            >
+              Miqdorni sozlash (sabab bilan)
+            </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ombor miqdorini sozlash: sotib olindi / yaroqsiz / yo'qoldi */}
+      <Dialog open={showAdjust} onOpenChange={(o) => { setShowAdjust(o); if (!o) setEditingEq(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ombor miqdorini sozlash</DialogTitle>
+          </DialogHeader>
+          {editingEq && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                {editingEq.name} — omborda {editingEq.totalQuantity} dona
+                ({editingEq.rentedQuantity} dona ijarada)
+              </p>
+              <div className="space-y-2">
+                <Label>O'zgarish</Label>
+                <Input
+                  type="number"
+                  placeholder="+5 yoki -2"
+                  value={adjustValue}
+                  onChange={(e) => setAdjustValue(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Musbat — yangi jihoz keldi, manfiy — yaroqsiz yoki yo'qolgan.
+                  {adjustValue && !isNaN(parseInt(adjustValue)) && (
+                    <> Yangi jami: {editingEq.totalQuantity + parseInt(adjustValue)} dona.</>
+                  )}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Sabab</Label>
+                <Input
+                  placeholder="Masalan: 5 ta yangi lesa sotib olindi"
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                />
+              </div>
+              <Button
+                className="w-full"
+                disabled={
+                  adjustQuantityMutation.isPending ||
+                  !adjustValue ||
+                  isNaN(parseInt(adjustValue)) ||
+                  parseInt(adjustValue) === 0 ||
+                  adjustReason.trim().length < 3 ||
+                  editingEq.totalQuantity + parseInt(adjustValue) < editingEq.rentedQuantity
+                }
+                onClick={() => adjustQuantityMutation.mutate()}
+              >
+                {adjustQuantityMutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
+              </Button>
+              {!!adjustValue &&
+                !isNaN(parseInt(adjustValue)) &&
+                editingEq.totalQuantity + parseInt(adjustValue) < editingEq.rentedQuantity && (
+                  <p className="text-[10px] text-destructive">
+                    Ijaradagi {editingEq.rentedQuantity} donadan kam bo'lishi mumkin emas
+                  </p>
+                )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
